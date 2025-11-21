@@ -9,7 +9,7 @@ Environment variables - all services
 */.env.production
 */.env.staging
 
-Database
+# Database
 *.db
 *.sqlite3
 

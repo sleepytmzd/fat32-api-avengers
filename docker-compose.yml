@@ -88,6 +88,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL for Campaign Service
+  postgres-campaign:
+    image: postgres:15-alpine
+    container_name: postgres-campaign-demo
+    environment:
+      POSTGRES_USER: campaign
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: campaigndb
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./data/campaign:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campaign -d campaigndb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # PostgreSQL for Notification Service
   postgres-notification:
     image: postgres:15-alpine
@@ -159,6 +179,47 @@ services:
       - "service=user-service"
       - "version=v4"
 
+  # Campaign Service
+  campaign-service:
+    image: sleepytmzd/campaign-service:v1
+    build:
+      context: ./campaign-service
+      dockerfile: Dockerfile
+    container_name: campaign-service-demo
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://campaign:password@postgres-campaign:5432/campaigndb
+      REDIS_URL: redis://redis:6379
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
+      SERVICE_NAME: "campaign-service"
+      DEBUG: "false"
+    depends_on:
+      postgres-campaign:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      jaeger:
+        condition: service_started
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=campaign-service"
+      - "version=v1"
+
   # Notification Service
   notification-service:
     build:
@@ -212,6 +273,7 @@ services:
       CIRCUIT_BREAKER_ENABLED: true
       REDIS_URL: redis://redis:6379
       USER_SERVICE_URL: http://user-service:8001
+      CAMPAIGN_SERVICE_URL: http://campaign-service:8002
       DEMO_SERVICE_URL: http://demo-service:8002
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
@@ -219,6 +281,7 @@ services:
     depends_on:
       - redis
       - user-service
+      - campaign-service
       - jaeger
     networks:
       - cuet-api-avengers

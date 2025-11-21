@@ -25,11 +25,11 @@ This repo follows a *monorepo* layout with six core services:
    - Auth (JWT), roles: DONOR, CAMPAIGN_OWNER, ADMIN
    - Exposes user profile and history endpoints (via other services)
 
-3. *campaign-service*
+3. *campaign-service* you can think of it as the product-service 
    - CRUD for fundraising campaigns
    - Stores campaign metadata, goal amount, status, etc.
 
-4. *donation-service*
+4. *donation-service* you can think of it as the order-service
    - Handles pledges/donation intents
    - Manages donation state machine: INITIATED → AUTHORIZED → CAPTURED → REFUNDED
    - Emits events for payment & totals

@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     SERVICE_REGISTRY_TYPE: str = "static"  # static, consul, kubernetes
 
     USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
-    DEMO_SERVICE_URL: str = os.getenv("DEMO_SERVICE_URL", "http://demo-service:8002")
+    CAMPAIGN_SERVICE_URL: str = os.getenv("CAMPAIGN_SERVICE_URL", "http://campaign-service:8002")
     
     # Health Check
     HEALTH_CHECK_INTERVAL: int = 30

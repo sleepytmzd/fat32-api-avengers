@@ -28,7 +28,7 @@ class ServiceRegistry:
         # Default static services (can be overridden)
         default_services = {
             "user-service": [settings.USER_SERVICE_URL],
-            "demo-service": [settings.DEMO_SERVICE_URL],
+            "campaign-service": [settings.CAMPAIGN_SERVICE_URL],
         }
         
         for service_name, instances in default_services.items():

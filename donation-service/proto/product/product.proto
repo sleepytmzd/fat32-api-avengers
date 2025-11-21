@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package product;
+
+option go_package = "product-svc/proto;product";
+
+service ProductService {
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+  rpc CheckAvailability(CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+}
+
+message GetProductRequest {
+  int32 product_id = 1;
+}
+
+message GetProductResponse {
+  int32 id = 1;
+  string name = 2;
+  float price = 3;
+  int32 stock = 4;
+}
+
+message CheckAvailabilityRequest {
+  int32 product_id = 1;
+  int32 quantity = 2;
+}
+
+message CheckAvailabilityResponse {
+  bool available = 1;
+  int32 stock = 2;
+}
+

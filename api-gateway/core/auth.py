@@ -25,7 +25,7 @@ PUBLIC_PATHS = [
     r"^/api/v1/user-service/auth/register$",
     r"^/api/v1/user-service/auth/login$",
     r"^/api/v1/user-service/auth/forgot-password$",
-    r"^/api/v1/campaign-service/campaigns.*",  # Public product browsing (GET only in handler)
+    r"^campaign-service/campaigns.*",  # Public campaign browsing (GET only in handler)
     r".*/health$",
     r".*/docs.*",
 ]
@@ -40,8 +40,9 @@ ADMIN_PATHS = [
 def is_public_path(service: str, path: str) -> bool:
     """Check if path is public"""
     full_path = f"{service}/{path}"
+    full_api_path = f"/api/v1/{service}/{path}"
     for pattern in PUBLIC_PATHS:
-        if re.match(pattern, full_path):
+        if re.match(pattern, full_path) or re.match(pattern, full_api_path):
             return True
     return False
 
@@ -140,8 +141,8 @@ async def check_access(
     """
     # Check if public
     if is_public_path(service_name, path):
-        # Special case: product browsing only public for GET
-        if service_name == "product-service" and method != "GET":
+        # Special case: campaign browsing only public for GET
+        if service_name == "campaign-service" and method != "GET":
             if not credentials:
                 raise HTTPException(status_code=401, detail="Authentication required")
             return await verify_token(credentials)

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "order-svc/proto;order";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+}
+
+message CreateOrderRequest {
+  int32 user_id = 1;
+  int32 product_id = 2;
+  int32 quantity = 3;
+}
+
+message CreateOrderResponse {
+  bool success = 1;
+  int32 order_id = 2;
+  string message = 3;
+}
+
+message GetOrderRequest {
+  int32 order_id = 1;
+}
+
+message GetOrderResponse {
+  int32 id = 1;
+  int32 user_id = 2;
+  int32 product_id = 3;
+  int32 quantity = 4;
+  string status = 5;
+  float total_price = 6;
+}
+
