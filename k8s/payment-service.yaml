@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-service
+        image: sleepytmzd/payment-service:v11
+        ports:
+        - containerPort: 8003
+        command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://user:password@pg-payment-access:5432/paymentdb
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: BANKING_SERVICE_URL
+          value: http://banking-service-svc:8006
+        - name: JAEGER_ENDPOINT
+          value: http://jaeger:14268/api/traces
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: SERVICE_NAME
+          value: "payment-service"
+        - name: SERVICE_PORT
+          value: "8003"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service-svc
+  labels:
+    app: payment-service
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - protocol: TCP
+      port: 8003
+      targetPort: 8003
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50

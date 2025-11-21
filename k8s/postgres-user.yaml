@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-user
+  labels:
+    app: postgres-user
+spec:
+  ports:
+    - port: 5432
+      name: postgres-user
+  clusterIP: None  # Headless service for stable DNS (needed by StatefulSet)
+  selector:
+    app: postgres-user
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-user-access
+  labels:
+    app: postgres-user
+spec:
+  type: ClusterIP  # Use LoadBalancer only if you want external access (not recommended)
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres-user
+  selector:
+    app: postgres-user
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-user
+  labels:
+    app: postgres-user
+spec:
+  serviceName: postgres-user  # must match the headless service name
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-user
+  template:
+    metadata:
+      labels:
+        app: postgres-user
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgres-user
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres-user
+          env:
+            - name: POSTGRES_DB
+              value: userdb
+            - name: POSTGRES_USER
+              value: user
+            - name: POSTGRES_PASSWORD
+              value: password
+          volumeMounts:
+            - name: postgres-user-data
+              mountPath: /var/lib/postgresql/data
+              subPath: data  # optional, ensures nested directory for data
+          resources:
+            requests:
+              cpu: 20m
+              memory: 200Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-user-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage  # DigitalOcean’s default storage class
+        resources:
+          requests:
+            storage: 512Mi
+

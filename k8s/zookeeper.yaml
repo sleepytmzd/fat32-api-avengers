@@ -1,0 +1,138 @@
+---
+# Zookeeper Service (Headless)
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: default
+  labels:
+    app: zookeeper
+spec:
+  clusterIP: None  # Headless service
+  ports:
+  - port: 2181
+    targetPort: 2181
+    name: client
+  - port: 2888
+    targetPort: 2888
+    name: peer
+  - port: 3888
+    targetPort: 3888
+    name: leader-election
+  selector:
+    app: zookeeper
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-clusterip
+  namespace: default
+  labels:
+    app: zookeeper
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2181
+      targetPort: 2181
+      name: client
+  selector:
+    app: zookeeper
+
+
+---
+# Zookeeper StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: default
+spec:
+  serviceName: zookeeper
+  replicas: 1  # Single node for development, 3+ for production
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 1000
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:7.5.0
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: peer
+        - containerPort: 3888
+          name: leader-election
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_TICK_TIME
+          value: "2000"
+        - name: ZOOKEEPER_SERVER_ID
+          value: "1"
+        - name: ZOOKEEPER_4LW_COMMANDS_WHITELIST
+          value: "*"
+        - name: KAFKA_OPTS
+          value: "-Dzookeeper.4lw.commands.whitelist=*"
+        volumeMounts:
+        - name: zookeeper-data
+          mountPath: /var/lib/zookeeper/data
+        - name: zookeeper-log
+          mountPath: /var/lib/zookeeper/log
+
+        # livenessProbe:
+        #   tcpSocket:
+        #     port: 2181
+        #   initialDelaySeconds: 30
+        #   periodSeconds: 10
+        # readinessProbe:
+        #   tcpSocket:
+        #     port: 2181
+        #   initialDelaySeconds: 10
+        #   periodSeconds: 5
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+
+
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "echo ruok | nc 127.0.0.1 2181 | grep imok"]
+          initialDelaySeconds: 25
+          periodSeconds: 10
+
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "echo ruok | nc 127.0.0.1 2181 | grep imok"]
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+  volumeClaimTemplates:
+  - metadata:
+      name: zookeeper-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+  - metadata:
+      name: zookeeper-log
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

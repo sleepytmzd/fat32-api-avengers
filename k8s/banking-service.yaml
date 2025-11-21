@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-service
+  labels:
+    app: banking-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: banking-service
+  template:
+    metadata:
+      labels:
+        app: banking-service
+    spec:
+      containers:
+      - name: banking-service
+        image: sleepytmzd/banking-service:v11
+        ports:
+        - containerPort: 8006
+        command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006"]
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://user:password@pg-banking-access:5432/bankingdb
+        - name: JAEGER_ENDPOINT
+          value: http://jaeger:14268/api/traces
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: SERVICE_NAME
+          value: "banking-service"
+        - name: SERVICE_PORT
+          value: "8006"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking-service-svc
+  labels:
+    app: banking-service
+spec:
+  selector:
+    app: banking-service
+  ports:
+    - protocol: TCP
+      port: 8006
+      targetPort: 8006
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: banking-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: banking-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50

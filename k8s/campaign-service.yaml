@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campaign-service
+  labels:
+    app: campaign-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campaign-service
+  template:
+    metadata:
+      labels:
+        app: campaign-service
+    spec:
+      containers:
+      - name: campaign-service
+        image: sleepytmzd/campaign-service:v11
+        ports:
+        - containerPort: 8002
+        - containerPort: 50051
+        command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
+        env:
+        - name: DATABASE_URL
+          value: postgresql://user:password@pg-campaign-access:5432/campaigndb
+        - name: REDIS_URL
+          value: redis://redis:6379
+        - name: JAEGER_ENDPOINT
+          value: http://jaeger:14268/api/traces
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: SERVICE_NAME
+          value: "campaign-service"
+        - name: DEBUG
+          value: "false"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: campaign-service-svc
+  labels:
+    app: campaign-service
+spec:
+  selector:
+    app: campaign-service
+  ports:
+    - protocol: TCP
+      port: 8002
+      targetPort: 8002
+      name: http
+    - protocol: TCP
+      port: 50051
+      targetPort: 50051
+      name: grpc
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: campaign-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: campaign-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50
