@@ -29,6 +29,8 @@ class ServiceRegistry:
         default_services = {
             "user-service": [settings.USER_SERVICE_URL],
             "campaign-service": [settings.CAMPAIGN_SERVICE_URL],
+            "payment-service": [settings.PAYMENT_SERVICE_URL],
+            "notification-service": [settings.NOTIFICATION_SERVICE_URL],
         }
         
         for service_name, instances in default_services.items():

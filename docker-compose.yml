@@ -108,6 +108,46 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL for Notification Service
+  postgres-notification:
+    image: postgres:15-alpine
+    container_name: postgres-notification-demo
+    environment:
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_pass
+      POSTGRES_DB: notification_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./data/notification:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Payment Service
+  postgres-payment:
+    image: postgres:15-alpine
+    container_name: postgres-payment-demo
+    environment:
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_pass
+      POSTGRES_DB: payment_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./data/payment:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for Gateway
   redis:
     image: redis:7-alpine
@@ -124,7 +164,7 @@ services:
 
   # User Service
   user-service:
-    image: sleepytmzd/user-service:v4
+    # image: sleepytmzd/user-service:v4
     build:
       context: ./user-service
       dockerfile: Dockerfile
@@ -161,7 +201,7 @@ services:
 
   # Campaign Service
   campaign-service:
-    image: sleepytmzd/campaign-service:v1
+    # image: sleepytmzd/campaign-service:v1
     build:
       context: ./campaign-service
       dockerfile: Dockerfile
@@ -200,10 +240,84 @@ services:
       - "service=campaign-service"
       - "version=v1"
 
+  # Notification Service
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service-demo
+    ports:
+      - "8005:8005"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://notification_user:notification_pass@postgres-notification:5432/notification_db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVICE_NAME: "notification-service"
+      SERVICE_PORT: 8005
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=notification-service"
+      - "version=v1"
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service-demo
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://payment_user:payment_pass@postgres-payment:5432/payment_db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
+      SERVICE_NAME: "payment-service"
+      SERVICE_PORT: 8003
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=payment-service"
+      - "version=v1"
+
   
   # API Gateway
   api-gateway:
-    image: sleepytmzd/ecom-api-gateway:v3
+    # image: sleepytmzd/ecom-api-gateway:v3
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
@@ -218,7 +332,6 @@ services:
       REDIS_URL: redis://redis:6379
       USER_SERVICE_URL: http://user-service:8001
       CAMPAIGN_SERVICE_URL: http://campaign-service:8002
-      DEMO_SERVICE_URL: http://demo-service:8002
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
       SERVICE_NAME: "api-gateway"

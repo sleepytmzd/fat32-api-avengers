@@ -5,12 +5,12 @@ from app.database.database import get_db
 from app.services.order import OrderService
 from app.services.grpc_client import ProductGRPCClient, get_product_grpc_client
 from app.services.http_client import ProductHTTPClient, get_product_http_client
-from app.schemas.order import CreateOrderRequest, UpdateOrderRequest, OrderResponse, OrderListResponse
+from app.schemas.donation import CreateDonationRequest, UpdateDonationRequest, DonationResponse, DonationListResponse
 from app.kafka.producer import get_kafka_producer
 import structlog
 import asyncio
 
-router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
+router = APIRouter(prefix="/donations", tags=["donations"])
 logger = structlog.get_logger(__name__)
 
 
@@ -163,62 +163,58 @@ async def create_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{order_id}", response_model=OrderResponse)
-def get_order(
-    order_id: int,
+@router.get("/{donation_id}", response_model=DonationResponse)
+def get_donation(
+    donation_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get an order by ID"""
+    """Get a donation by ID"""
     try:
-        order = OrderService.get_order(db=db, order_id=order_id)
-        if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
-        return order
+        donation = OrderService.get_order(db=db, order_id=donation_id)
+        if not donation:
+            raise HTTPException(status_code=404, detail="Donation not found")
+        return donation
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to get order", error=str(e), order_id=order_id)
+        logger.error("Failed to get donation", error=str(e), donation_id=donation_id)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/user/{user_id}", response_model=OrderListResponse)
-def get_orders_by_user(
+@router.get("/user/{user_id}", response_model=DonationListResponse)
+def get_donations_by_user(
     user_id: int,
-    skip: int = Query(0, ge=0, description="Number of orders to skip"),
-    limit: int = Query(100, ge=1, le=100, description="Number of orders to return"),
+    skip: int = Query(0, ge=0, description="Number of donations to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Number of donations to return"),
     db: Session = Depends(get_db)
 ):
-    """Get orders by user ID with pagination"""
+    """Get donations by user ID with pagination"""
     try:
-        orders = OrderService.get_orders_by_user(db=db, user_id=user_id, skip=skip, limit=limit)
+        donations = OrderService.get_orders_by_user(db=db, user_id=user_id, skip=skip, limit=limit)
         
-        return OrderListResponse(
-            orders=orders,
-            total=len(orders),
-            skip=skip,
-            limit=limit
+        return DonationListResponse(
+            donations=donations,
+            total=len(donations)
         )
     except Exception as e:
-        logger.error("Failed to get orders by user", error=str(e), user_id=user_id)
+        logger.error("Failed to get donations by user", error=str(e), user_id=user_id)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("", response_model=OrderListResponse)
-def get_all_orders(
-    skip: int = Query(0, ge=0, description="Number of orders to skip"),
-    limit: int = Query(100, ge=1, le=100, description="Number of orders to return"),
+@router.get("", response_model=DonationListResponse)
+def get_all_donations(
+    skip: int = Query(0, ge=0, description="Number of donations to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Number of donations to return"),
     db: Session = Depends(get_db)
 ):
-    """Get all orders with pagination"""
+    """Get all donations with pagination"""
     try:
-        orders = OrderService.get_all_orders(db=db, skip=skip, limit=limit)
+        donations = OrderService.get_all_orders(db=db, skip=skip, limit=limit)
         
-        return OrderListResponse(
-            orders=orders,
-            total=len(orders),
-            skip=skip,
-            limit=limit
+        return DonationListResponse(
+            donations=donations,
+            total=len(donations)
         )
     except Exception as e:
-        logger.error("Failed to get all orders", error=str(e))
+        logger.error("Failed to get all donations", error=str(e))
         raise HTTPException(status_code=500, detail="Internal server error")

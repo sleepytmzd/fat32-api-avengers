@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package donation;
+
+option go_package = "donation-svc/proto;donation";
+
+service DonationService {
+  rpc CreateDonation(CreateDonationRequest) returns (CreateDonationResponse);
+  rpc GetDonation(GetDonationRequest) returns (GetDonationResponse);
+}
+
+message CreateDonationRequest {
+  int32 user_id = 1;
+  int32 campaign_id = 2;
+  float amount = 3;
+  string payment_method = 4;
+  string donor_name = 5;
+  string donor_email = 6;
+  string message = 7;
+  bool is_anonymous = 8;
+}
+
+message CreateDonationResponse {
+  bool success = 1;
+  int32 donation_id = 2;
+  string message = 3;
+}
+
+message GetDonationRequest {
+  int32 donation_id = 1;
+}
+
+message GetDonationResponse {
+  int32 id = 1;
+  int32 user_id = 2;
+  int32 campaign_id = 3;
+  float amount = 4;
+  string status = 5;
+  string payment_method = 6;
+  string donor_name = 7;
+  bool is_anonymous = 8;
+}

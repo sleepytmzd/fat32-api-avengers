@@ -1,40 +1,79 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 
 
-class OrderItem(BaseModel):
-    """Order item schema for events"""
-    product_id: int
-    quantity: int
-    price: float
-
-
-class OrderCreatedEvent(BaseModel):
-    """Schema for order_created Kafka event"""
-    event_type: str = "order_created"
-    order_id: str
-    user_id: str
-    items: List[OrderItem]
-    total_amount: float
+class DonationCreatedEvent(BaseModel):
+    """Schema for donation_created Kafka event"""
+    event_type: str = "donation_created"
+    donation_id: int
+    user_id: Optional[int]
+    campaign_id: int
+    amount: float
     status: str
+    payment_method: Optional[str]
+    is_anonymous: bool
     timestamp: Optional[str] = None
     
     class Config:
         json_schema_extra = {
             "example": {
-                "event_type": "order_created",
-                "order_id": "123",
-                "user_id": "456",
-                "items": [
-                    {
-                        "product_id": 1,
-                        "quantity": 2,
-                        "price": 29.99
-                    }
-                ],
-                "total_amount": 59.98,
-                "status": "pending",
-                "timestamp": "2024-01-01T12:00:00Z"
+                "event_type": "donation_created",
+                "donation_id": 123,
+                "user_id": 456,
+                "campaign_id": 5,
+                "amount": 100.00,
+                "status": "initiated",
+                "payment_method": "card",
+                "is_anonymous": False,
+                "timestamp": "2025-11-21T12:00:00Z"
+            }
+        }
+
+
+class DonationCapturedEvent(BaseModel):
+    """Schema for donation_captured Kafka event"""
+    event_type: str = "donation_captured"
+    donation_id: int
+    user_id: Optional[int]
+    campaign_id: int
+    amount: float
+    payment_id: str
+    timestamp: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "event_type": "donation_captured",
+                "donation_id": 123,
+                "user_id": 456,
+                "campaign_id": 5,
+                "amount": 100.00,
+                "payment_id": "pi_1234567890",
+                "timestamp": "2025-11-21T12:05:00Z"
+            }
+        }
+
+
+class DonationFailedEvent(BaseModel):
+    """Schema for donation_failed Kafka event"""
+    event_type: str = "donation_failed"
+    donation_id: int
+    user_id: Optional[int]
+    campaign_id: int
+    amount: float
+    reason: str
+    timestamp: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "event_type": "donation_failed",
+                "donation_id": 123,
+                "user_id": 456,
+                "campaign_id": 5,
+                "amount": 100.00,
+                "reason": "Insufficient funds",
+                "timestamp": "2025-11-21T12:05:00Z"
             }
         }
