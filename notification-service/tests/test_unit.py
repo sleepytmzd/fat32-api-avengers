@@ -415,65 +415,75 @@ class TestKafkaHandler:
         assert mock_consumer_instance.close.called
     
     @pytest.mark.asyncio
-    @patch('main.send_email_async')
-    async def test_handle_order_created_success(self, mock_send_email):
-        """Test successfully processing order.created event"""
+    @patch('crud.create_notification')
+    async def test_handle_donation_created_success(self, mock_create_notification):
+        """Test successfully processing donation_created event"""
         from kafka_consumer import KafkaHandler
         
         handler = KafkaHandler()
         event_data = {
-            "order_id": "order-123",
+            "donation_id": "donation-123",
             "user_id": "user-456",
-            "user_email": "user@example.com",
-            "total_amount": 99.99,
-            "currency": "USD"
+            "campaign_id": "campaign-789",
+            "amount": 99.99,
+            "status": "pending",
+            "payment_method": "credit_card",
+            "is_anonymous": False,
+            "message": "Good luck!",
+            "timestamp": "2025-11-21T10:00:00Z"
         }
         
-        await handler._handle_order_created(event_data, mock_send_email)
+        mock_create_notification.return_value = MagicMock()
         
-        assert mock_send_email.called
-        call_args = mock_send_email.call_args
-        assert "user@example.com" in str(call_args)
-        assert "order-123" in str(call_args)
+        await handler._handle_donation_created(event_data)
+        
+        # Should create notification
+        assert mock_create_notification.called
     
     @pytest.mark.asyncio
-    @patch('main.send_email_async')
-    async def test_handle_order_created_missing_email(self, mock_send_email):
-        """Test processing order.created event with missing user email"""
+    @patch('crud.create_notification')
+    async def test_handle_donation_created_missing_user_id(self, mock_create_notification):
+        """Test processing donation_created event with missing user_id"""
         from kafka_consumer import KafkaHandler
         
         handler = KafkaHandler()
         event_data = {
-            "order_id": "order-123",
-            "user_id": "user-456",
-            "total_amount": 99.99
-            # Missing user_email
+            "donation_id": "donation-123",
+            "campaign_id": "campaign-789",
+            "amount": 99.99
+            # Missing user_id
         }
         
-        await handler._handle_order_created(event_data, mock_send_email)
+        await handler._handle_donation_created(event_data)
         
-        # Should not send email when email is missing
-        assert not mock_send_email.called
+        # Should not create notification when user_id is missing
+        assert not mock_create_notification.called
     
     @pytest.mark.asyncio
-    @patch('main.send_email_async')
-    async def test_handle_order_cancelled_success(self, mock_send_email):
-        """Test processing order.cancelled event"""
+    @patch('crud.create_notification')
+    async def test_handle_payment_verified_success(self, mock_create_notification):
+        """Test processing payment.verified event"""
         from kafka_consumer import KafkaHandler
         
         handler = KafkaHandler()
         event_data = {
-            "order_id": "order-123",
-            "user_email": "user@example.com",
-            "reason": "Customer request"
+            "payment_id": "pay-123",
+            "donation_id": "donation-456",
+            "user_id": "user-789",
+            "campaign_id": "campaign-111",
+            "amount": 149.99,
+            "transaction_id": "txn-999"
         }
         
-        # Currently this handler only logs
-        await handler._handle_order_cancelled(event_data, mock_send_email)
+        mock_create_notification.return_value = MagicMock()
+        
+        await handler._handle_payment_verified(event_data)
+        
+        # Should create notification
+        assert mock_create_notification.called
     
     @pytest.mark.asyncio
-    @patch('main.send_email_async')
-    async def test_handle_payment_completed_success(self, mock_send_email):
+    async def test_handle_payment_completed_success(self):
         """Test processing payment.completed event"""
         from kafka_consumer import KafkaHandler
         
@@ -485,28 +495,34 @@ class TestKafkaHandler:
             "transaction_id": "txn-789"
         }
         
-        # Currently this handler only logs
-        await handler._handle_payment_completed(event_data, mock_send_email)
+        # This handler only logs, so just verify it doesn't raise an exception
+        await handler._handle_payment_completed(event_data, None)
     
     @pytest.mark.asyncio
-    @patch('main.send_email_async')
-    async def test_handle_payment_failed_success(self, mock_send_email):
+    @patch('crud.create_notification')
+    async def test_handle_payment_failed_success(self, mock_create_notification):
         """Test processing payment.failed event"""
         from kafka_consumer import KafkaHandler
         
         handler = KafkaHandler()
         event_data = {
             "payment_id": "pay-123",
-            "order_id": "order-456",
+            "donation_id": "donation-456",
+            "user_id": "user-789",
+            "campaign_id": "campaign-111",
+            "amount": 99.99,
             "reason": "Insufficient funds"
         }
         
-        # Currently this handler only logs
-        await handler._handle_payment_failed(event_data, mock_send_email)
+        mock_create_notification.return_value = MagicMock()
+        
+        await handler._handle_payment_failed(event_data, None)
+        
+        # Should create notification
+        assert mock_create_notification.called
     
     @pytest.mark.asyncio
-    @patch('main.send_email_async')
-    async def test_handle_payment_refunded_success(self, mock_send_email):
+    async def test_handle_payment_refunded_success(self):
         """Test processing payment.refunded event"""
         from kafka_consumer import KafkaHandler
         
@@ -518,8 +534,8 @@ class TestKafkaHandler:
             "reason": "Customer request"
         }
         
-        # Currently this handler only logs
-        await handler._handle_payment_refunded(event_data, mock_send_email)
+        # This handler only logs, so just verify it doesn't raise an exception
+        await handler._handle_payment_refunded(event_data, None)
 
 
 

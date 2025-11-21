@@ -92,22 +92,26 @@ class TestKafkaIntegration:
         kafka_consumer.KAFKA_BOOTSTRAP_SERVERS = original_servers
     
     @pytest.mark.asyncio
-    async def test_order_created_event_to_kafka(self, db_session):
-        """Test producing order.created event to Kafka"""
+    async def test_donation_created_event_to_kafka(self, db_session):
+        """Test producing donation_created event to Kafka"""
         # Just test that we can produce to Kafka successfully
-        user_email = "test@example.com"
-        order_id = str(uuid.uuid4())
+        donation_id = str(uuid.uuid4())
+        user_id = str(uuid.uuid4())
         
         try:
             produce_kafka_message(
-                "order.events",
-                "order.created",
+                "donation_created",
+                "donation_created",
                 {
-                    "order_id": order_id,
-                    "user_id": str(uuid.uuid4()),
-                    "user_email": user_email,
-                    "total_amount": 99.99,
-                    "currency": "USD"
+                    "donation_id": donation_id,
+                    "user_id": user_id,
+                    "campaign_id": "campaign-123",
+                    "amount": 99.99,
+                    "status": "pending",
+                    "payment_method": "credit_card",
+                    "is_anonymous": False,
+                    "message": "Good luck!",
+                    "timestamp": datetime.utcnow().isoformat()
                 }
             )
             # If no exception, test passes

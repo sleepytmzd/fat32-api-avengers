@@ -1,0 +1,53 @@
+name: Donation Service Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'donation-service/**'
+      - '.github/workflows/donation-service-workflow.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'donation-service/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('donation-service/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Create virtual environment
+      working-directory: ./donation-service
+      run: |
+        python -m venv venv
+        echo "Virtual environment created"
+    
+    - name: Install dependencies
+      working-directory: ./donation-service
+      run: |
+        source venv/bin/activate
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+    
+    - name: Run unit tests
+      working-directory: ./donation-service
+      run: |
+        source venv/bin/activate
+        pytest tests/test_unit.py -v --tb=short

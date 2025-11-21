@@ -196,7 +196,6 @@ class CampaignService:
             
             return CampaignResponse(
                 id=db_campaign.id,
-                campaign_id=db_campaign.campaign_id,
                 title=db_campaign.title,
                 name=db_campaign.name,
                 description=db_campaign.description,
