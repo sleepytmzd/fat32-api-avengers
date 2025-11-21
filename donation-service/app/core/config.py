@@ -8,19 +8,16 @@ class Settings(BaseSettings):
     database_url: str
     
     # App
-    app_name: str = "Order Service API"
+    app_name: str = "Donation Service API"
     debug: bool = False
-    service_name: str = "order-service"
+    service_name: str = "donation-service"
     
     # gRPC Services
-    product_grpc_url: str
-    
-    # HTTP Services
-    product_service_url: str
+    campaign_grpc_url: str = "campaign-service:50051"
     
     # Kafka
     kafka_bootstrap_servers: str
-    kafka_topic_order_created: str = "order_created"
+    kafka_topic_donation_created: str = "donation_created"
     
     # Redis
     redis_url: str

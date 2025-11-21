@@ -15,10 +15,10 @@ message GetCampaignRequest {
 
 message GetCampaignResponse {
   int32 id = 1;
-  string title = 2;
-  string name = 3;
-  string description = 4;
-  int32 product_id = 5;
+  string campaign_id = 2;
+  string title = 3;
+  string name = 4;
+  string description = 5;
   string start_date = 6;
   string end_date = 7;
   bool is_active = 8;

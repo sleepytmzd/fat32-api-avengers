@@ -1,33 +1,33 @@
 """
-gRPC Product Service Client
+gRPC Campaign Service Client
 Based on: https://ssojet.com/grpc/use-grpc-in-fastapi/
 """
 
 import grpc
 import structlog
-from typing import Tuple, Dict, Any, Optional
+from typing import Dict, Any
 from fastapi import HTTPException
 
 # Import generated gRPC classes
-from app.grpc.product import product_pb2, product_pb2_grpc
+from app.grpc.campaign import campaign_pb2, campaign_pb2_grpc
 from app.core.config import get_settings
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
 
-class ProductGRPCClient:
-    """gRPC client for Product Service communication"""
+class CampaignGRPCClient:
+    """gRPC client for Campaign Service communication"""
     
     def __init__(self):
-        # gRPC server address (product service)
-        self.server_address = getattr(settings, 'product_grpc_url', 'product-service:50051')
+        # gRPC server address (campaign service)
+        self.server_address = getattr(settings, 'campaign_grpc_url', 'campaign-service:50051')
         self.channel = None
         self.stub = None
         
     async def __aenter__(self):
         """Async context manager entry"""
         self.channel = grpc.aio.insecure_channel(self.server_address)
-        self.stub = product_pb2_grpc.ProductServiceStub(self.channel)
+        self.stub = campaign_pb2_grpc.CampaignServiceStub(self.channel)
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -35,44 +35,43 @@ class ProductGRPCClient:
         if self.channel:
             await self.channel.close()
     
-    async def check_availability(self, product_id: int, quantity: int) -> Tuple[bool, int]:
+    async def check_campaign_active(self, campaign_id: int) -> Dict[str, Any]:
         """
-        Check if product is available in requested quantity
-        Returns: (available: bool, current_stock: int)
-        
-        Equivalent to Go code:
-        available, stock, err := h.productClient.CheckAvailability(ctx, int32(req.ProductID), int32(req.Quantity))
+        Check if campaign is active and accepting donations
+        Returns: dict with is_active (bool), message (str), end_date (str)
         """
         try:
             logger.info(
-                "Checking product availability via gRPC",
-                product_id=product_id,
-                quantity=quantity,
+                "Checking campaign active status via gRPC",
+                campaign_id=campaign_id,
                 server=self.server_address
             )
             
             # Create gRPC request
-            request = product_pb2.CheckAvailabilityRequest(
-                product_id=product_id,
-                quantity=quantity
+            request = campaign_pb2.CheckCampaignActiveRequest(
+                campaign_id=campaign_id
             )
             
             # Make gRPC call
-            response = await self.stub.CheckAvailability(request)
+            response = await self.stub.CheckCampaignActive(request)
             
             logger.info(
-                "Product availability checked",
-                product_id=product_id,
-                available=response.available,
-                current_stock=response.stock
+                "Campaign active status checked",
+                campaign_id=campaign_id,
+                is_active=response.is_active,
+                message=response.message
             )
             
-            return response.available, response.stock
+            return {
+                "is_active": response.is_active,
+                "message": response.message,
+                "end_date": response.end_date
+            }
             
         except grpc.RpcError as e:
             logger.error(
-                "gRPC call failed - CheckAvailability",
-                product_id=product_id,
+                "gRPC call failed - CheckCampaignActive",
+                campaign_id=campaign_id,
                 error_code=e.code().name,
                 error_details=e.details(),
                 server=self.server_address
@@ -81,22 +80,22 @@ class ProductGRPCClient:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
                 raise HTTPException(
                     status_code=503,
-                    detail="Product service unavailable"
+                    detail="Campaign service unavailable"
                 )
             elif e.code() == grpc.StatusCode.NOT_FOUND:
                 raise HTTPException(
                     status_code=404,
-                    detail="Product not found"
+                    detail="Campaign not found"
                 )
             else:
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Product service error: {e.details()}"
+                    detail=f"Campaign service error: {e.details()}"
                 )
         except Exception as e:
             logger.error(
                 "Unexpected error in gRPC call",
-                product_id=product_id,
+                campaign_id=campaign_id,
                 error=str(e)
             )
             raise HTTPException(
@@ -104,49 +103,51 @@ class ProductGRPCClient:
                 detail="Internal server error"
             )
     
-    async def get_product(self, product_id: int) -> Dict[str, Any]:
+    async def get_campaign(self, campaign_id: int) -> Dict[str, Any]:
         """
-        Get product details including price
-        Returns: product data dictionary
-        
-        Equivalent to Go code:
-        productResp, err := h.productClient.GetProduct(ctx, int32(req.ProductID))
+        Get campaign details
+        Returns: campaign data dictionary
         """
         try:
             logger.info(
-                "Getting product details via gRPC",
-                product_id=product_id,
+                "Getting campaign details via gRPC",
+                campaign_id=campaign_id,
                 server=self.server_address
             )
             
             # Create gRPC request
-            request = product_pb2.GetProductRequest(product_id=product_id)
+            request = campaign_pb2.GetCampaignRequest(campaign_id=campaign_id)
             
             # Make gRPC call
-            response = await self.stub.GetProduct(request)
+            response = await self.stub.GetCampaign(request)
             
             # Convert gRPC response to dictionary
-            product_data = {
+            campaign_data = {
                 "id": response.id,
+                "campaign_id": response.campaign_id,
+                "title": response.title,
                 "name": response.name,
-                "price": response.price,
-                "stock": response.stock
+                "description": response.description,
+                "start_date": response.start_date,
+                "end_date": response.end_date,
+                "is_active": response.is_active,
+                "created_at": response.created_at,
+                "updated_at": response.updated_at
             }
             
             logger.info(
-                "Product details retrieved via gRPC",
-                product_id=product_id,
-                product_name=response.name,
-                price=response.price,
-                stock=response.stock
+                "Campaign details retrieved via gRPC",
+                campaign_id=campaign_id,
+                campaign_title=response.title,
+                is_active=response.is_active
             )
             
-            return product_data
+            return campaign_data
             
         except grpc.RpcError as e:
             logger.error(
-                "gRPC call failed - GetProduct",
-                product_id=product_id,
+                "gRPC call failed - GetCampaign",
+                campaign_id=campaign_id,
                 error_code=e.code().name,
                 error_details=e.details(),
                 server=self.server_address
@@ -155,22 +156,22 @@ class ProductGRPCClient:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
                 raise HTTPException(
                     status_code=503,
-                    detail="Product service unavailable"
+                    detail="Campaign service unavailable"
                 )
             elif e.code() == grpc.StatusCode.NOT_FOUND:
                 raise HTTPException(
                     status_code=404,
-                    detail="Product not found"
+                    detail="Campaign not found"
                 )
             else:
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Product service error: {e.details()}"
+                    detail=f"Campaign service error: {e.details()}"
                 )
         except Exception as e:
             logger.error(
                 "Unexpected error in gRPC call",
-                product_id=product_id,
+                campaign_id=campaign_id,
                 error=str(e)
             )
             raise HTTPException(
@@ -179,18 +180,18 @@ class ProductGRPCClient:
             )
 
 # Synchronous version for non-async contexts
-class ProductGRPCClientSync:
-    """Synchronous gRPC client for Product Service"""
+class CampaignGRPCClientSync:
+    """Synchronous gRPC client for Campaign Service"""
     
     def __init__(self):
-        self.server_address = getattr(settings, 'product_grpc_url', 'product-service:50051')
+        self.server_address = getattr(settings, 'campaign_grpc_url', 'campaign-service:50051')
         self.channel = None
         self.stub = None
     
     def __enter__(self):
         """Context manager entry"""
         self.channel = grpc.insecure_channel(self.server_address)
-        self.stub = product_pb2_grpc.ProductServiceStub(self.channel)
+        self.stub = campaign_pb2_grpc.CampaignServiceStub(self.channel)
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -198,61 +199,70 @@ class ProductGRPCClientSync:
         if self.channel:
             self.channel.close()
     
-    def check_availability(self, product_id: int, quantity: int) -> Tuple[bool, int]:
-        """Synchronous version of check_availability"""
+    def check_campaign_active(self, campaign_id: int) -> Dict[str, Any]:
+        """Synchronous version of check_campaign_active"""
         try:
-            request = product_pb2.CheckAvailabilityRequest(
-                product_id=product_id,
-                quantity=quantity
+            request = campaign_pb2.CheckCampaignActiveRequest(
+                campaign_id=campaign_id
             )
             
-            response = self.stub.CheckAvailability(request)
-            return response.available, response.stock
-            
-        except grpc.RpcError as e:
-            logger.error(
-                "gRPC call failed - CheckAvailability (sync)",
-                product_id=product_id,
-                error=str(e)
-            )
-            if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise HTTPException(status_code=503, detail="Product service unavailable")
-            elif e.code() == grpc.StatusCode.NOT_FOUND:
-                raise HTTPException(status_code=404, detail="Product not found")
-            else:
-                raise HTTPException(status_code=500, detail="Product service error")
-    
-    def get_product(self, product_id: int) -> Dict[str, Any]:
-        """Synchronous version of get_product"""
-        try:
-            request = product_pb2.GetProductRequest(product_id=product_id)
-            response = self.stub.GetProduct(request)
-            
+            response = self.stub.CheckCampaignActive(request)
             return {
-                "id": response.id,
-                "name": response.name,
-                "price": response.price,
-                "stock": response.stock
+                "is_active": response.is_active,
+                "message": response.message,
+                "end_date": response.end_date
             }
             
         except grpc.RpcError as e:
             logger.error(
-                "gRPC call failed - GetProduct (sync)",
-                product_id=product_id,
+                "gRPC call failed - CheckCampaignActive (sync)",
+                campaign_id=campaign_id,
                 error=str(e)
             )
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise HTTPException(status_code=503, detail="Product service unavailable")
+                raise HTTPException(status_code=503, detail="Campaign service unavailable")
             elif e.code() == grpc.StatusCode.NOT_FOUND:
-                raise HTTPException(status_code=404, detail="Product not found")
+                raise HTTPException(status_code=404, detail="Campaign not found")
             else:
-                raise HTTPException(status_code=500, detail="Product service error")
+                raise HTTPException(status_code=500, detail="Campaign service error")
+    
+    def get_campaign(self, campaign_id: int) -> Dict[str, Any]:
+        """Synchronous version of get_campaign"""
+        try:
+            request = campaign_pb2.GetCampaignRequest(campaign_id=campaign_id)
+            response = self.stub.GetCampaign(request)
+            
+            return {
+                "id": response.id,
+                "campaign_id": response.campaign_id,
+                "title": response.title,
+                "name": response.name,
+                "description": response.description,
+                "start_date": response.start_date,
+                "end_date": response.end_date,
+                "is_active": response.is_active,
+                "created_at": response.created_at,
+                "updated_at": response.updated_at
+            }
+            
+        except grpc.RpcError as e:
+            logger.error(
+                "gRPC call failed - GetCampaign (sync)",
+                campaign_id=campaign_id,
+                error=str(e)
+            )
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise HTTPException(status_code=503, detail="Campaign service unavailable")
+            elif e.code() == grpc.StatusCode.NOT_FOUND:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            else:
+                raise HTTPException(status_code=500, detail="Campaign service error")
 
 # Helper functions for easy usage
-async def get_product_grpc_client() -> ProductGRPCClient:
+async def get_campaign_grpc_client() -> CampaignGRPCClient:
     """Dependency to get async gRPC client"""
-    return ProductGRPCClient()
+    return CampaignGRPCClient()
 
-def get_product_grpc_client_sync() -> ProductGRPCClientSync:
+def get_campaign_grpc_client_sync() -> CampaignGRPCClientSync:
     """Dependency to get sync gRPC client"""
-    return ProductGRPCClientSync()
+    return CampaignGRPCClientSync()
