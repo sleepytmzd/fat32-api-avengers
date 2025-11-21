@@ -44,11 +44,6 @@ jobs:
           KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
           KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
           CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
-        options: >-
-          --health-cmd "kafka-broker-api-versions --bootstrap-server localhost:9092"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
         ports:
           - 19092:19092
     
@@ -92,6 +87,7 @@ jobs:
       env:
         TEST_DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:15434/testdb
       run: |
+        sleep 15
         pytest tests/test_kafka_integration.py -v --tb=short
   
   build-and-push:
