@@ -2,7 +2,7 @@
 Notification Service - Email, SMS, and push notification delivery
 No database - stateless service ready for Kafka integration
 """
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
 from typing import Optional, Dict, List
 import logging
 from datetime import datetime
@@ -63,6 +63,28 @@ async def health_check():
         "service": "notification-service",
         "kafka_connected": kafka_handler.is_connected()
     }
+
+# ============================================================================
+# Helper Functions - Extract user context from gateway headers
+# ============================================================================
+
+def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> Optional[str]:
+    """Extract user ID from gateway header"""
+    return x_user_id
+
+def get_current_user_email(x_user_email: Optional[str] = Header(None)) -> Optional[str]:
+    """Extract user email from gateway header"""
+    return x_user_email
+
+def get_current_user_role(x_user_role: Optional[str] = Header(None)) -> Optional[str]:
+    """Extract user role from gateway header"""
+    return x_user_role
+
+def require_user(x_user_id: Optional[str] = Header(None)) -> str:
+    """Require authenticated user"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return x_user_id
 
 # ============================================================================
 # Models
@@ -481,16 +503,16 @@ async def send_push_async(
 # User notification endpoints
 # ============================================================================
 
-@app.get("/notifications/user/{user_id}")
-async def get_user_notifications_endpoint(
-    user_id: str,
+@app.get("/notifications/my")
+async def get_my_notifications(
     limit: int = 100,
     offset: int = 0,
     channel: Optional[str] = None,
     status: Optional[str] = None,
+    user_id: str = Depends(require_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all notifications for a specific user"""
+    """Get all notifications for the authenticated user"""
     channel_enum = NotificationChannel(channel) if channel else None
     status_enum = NotificationStatus(status) if status else None
     
@@ -523,13 +545,13 @@ async def get_user_notifications_endpoint(
         ]
     }
 
-@app.get("/notifications/user/{user_id}/unread")
-async def get_unread_notifications_endpoint(
-    user_id: str,
+@app.get("/notifications/unread")
+async def get_my_unread_notifications(
     limit: int = 100,
+    user_id: str = Depends(require_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get unread notifications for a user"""
+    """Get unread notifications for the authenticated user"""
     notifications = await crud.get_unread_notifications(db=db, user_id=user_id, limit=limit)
     count = await crud.get_unread_count(db=db, user_id=user_id)
     
@@ -565,12 +587,12 @@ async def mark_notification_read_endpoint(
         "read_at": notification.read_at.isoformat() if notification.read_at else None
     }
 
-@app.post("/notifications/user/{user_id}/read-all")
-async def mark_all_read_endpoint(
-    user_id: str,
+@app.post("/notifications/read-all")
+async def mark_all_my_notifications_read(
+    user_id: str = Depends(require_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Mark all notifications as read for a user"""
+    """Mark all notifications as read for the authenticated user"""
     count = await crud.mark_all_as_read(db=db, user_id=user_id)
     
     return {

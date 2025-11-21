@@ -9,7 +9,7 @@ import threading
 
 from app.core.config import get_settings
 from app.database.database import init_db, close_db
-from app.api.campaigns import router as campaigns_router
+from app.api.campaign import router as campaigns_router
 from app.cache.redis import redis_cache
 from app.middleware.tracing import init_tracing
 from app.middleware.metrics import MetricsMiddleware, metrics_endpoint
