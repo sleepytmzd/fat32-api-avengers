@@ -64,7 +64,7 @@ class KafkaHandler:
         logger.info("Starting Kafka event consumer...")
         
         # Import here to avoid circular dependency
-        from main import send_email_async, notification_log
+        from main import send_email_async
         
         try:
             while self._running:
