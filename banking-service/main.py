@@ -12,7 +12,6 @@ from models import BankAccount, BankAccountCreate, BankAccountResponse, DebitReq
 from crud import (
     create_account,
     get_account_by_user_id,
-    get_account_by_id,
     check_balance,
     debit_account,
     credit_account
@@ -91,10 +90,7 @@ async def create_bank_account(
     if existing:
         raise HTTPException(status_code=400, detail="Account already exists for this user")
     
-    # Override user_id from token
-    account_data.user_id = user_id
-    
-    account = await create_account(db, account_data)
+    account = await create_account(db, user_id, account_data)
     return BankAccountResponse.from_orm(account)
 
 @app.get("/accounts/my", response_model=BankAccountResponse)

@@ -16,7 +16,7 @@ class DonationStatusEnum(str, Enum):
 
 class CreateDonationRequest(BaseModel):
     """Schema for creating a new donation"""
-    user_id: Optional[int] = Field(None, gt=0, description="ID of registered user (null for guest)")
+    user_id: Optional[str] = Field(None, min_length=1, description="ID of registered user (null for guest)")
     campaign_id: int = Field(..., gt=0, description="ID of the campaign to donate to")
     amount: float = Field(..., gt=0, description="Donation amount")
     payment_method: Optional[str] = Field(None, description="Payment method (card, paypal, etc.)")
@@ -28,7 +28,7 @@ class CreateDonationRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "user_id": 1,
+                "user_id": "user-123-abc",
                 "campaign_id": 5,
                 "amount": 100.00,
                 "payment_method": "card",
@@ -55,7 +55,7 @@ class UpdateDonationRequest(BaseModel):
 class DonationResponse(BaseModel):
     """Schema for donation responses"""
     id: int
-    user_id: Optional[int]
+    user_id: Optional[str]
     campaign_id: int
     amount: float
     status: DonationStatusEnum
@@ -73,7 +73,7 @@ class DonationResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "id": 1,
-                "user_id": 1,
+                "user_id": "user-123-abc",
                 "campaign_id": 5,
                 "amount": 100.00,
                 "status": "captured",
@@ -100,7 +100,7 @@ class DonationListResponse(BaseModel):
                 "donations": [
                     {
                         "id": 1,
-                        "user_id": 1,
+                        "user_id": "user-123-abc",
                         "campaign_id": 5,
                         "amount": 100.00,
                         "status": "captured",
@@ -122,7 +122,7 @@ class DonationListResponse(BaseModel):
 class DonationEvent(BaseModel):
     """Schema for donation events"""
     donation_id: int
-    user_id: Optional[int]
+    user_id: Optional[str]
     campaign_id: int
     amount: float
     status: DonationStatusEnum
@@ -133,7 +133,7 @@ class DonationEvent(BaseModel):
         json_schema_extra = {
             "example": {
                 "donation_id": 1,
-                "user_id": 1,
+                "user_id": "user-123-abc",
                 "campaign_id": 5,
                 "amount": 100.00,
                 "status": "captured",

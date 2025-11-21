@@ -148,6 +148,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL for Donation Service
+  postgres-donation:
+    image: postgres:15-alpine
+    container_name: postgres-donation-demo
+    environment:
+      POSTGRES_USER: donation_user
+      POSTGRES_PASSWORD: donation_pass
+      POSTGRES_DB: donation_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - ./data/donation:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U donation_user -d donation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # PostgreSQL for Banking Service
   postgres-banking:
     image: postgres:15-alpine
@@ -157,7 +177,7 @@ services:
       POSTGRES_PASSWORD: banking_pass
       POSTGRES_DB: banking_db
     ports:
-      - "5437:5432"
+      - "5438:5432"
     volumes:
       - ./data/banking:/var/lib/postgresql/data
     networks:
@@ -341,6 +361,50 @@ services:
       - "service=payment-service"
       - "version=v1"
 
+  # Donation Service
+  donation-service:
+    build:
+      context: ./donation-service
+      dockerfile: Dockerfile
+    container_name: donation-service-demo
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql://donation_user:donation_pass@postgres-donation:5432/donation_db
+      CAMPAIGN_GRPC_URL: campaign-service:50051
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
+      SERVICE_NAME: "donation-service"
+      SERVICE_PORT: 8004
+    depends_on:
+      postgres-donation:
+        condition: service_healthy
+      campaign-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=donation-service"
+      - "version=v1"
+
   # Banking Service
   banking-service:
     build:
@@ -348,13 +412,13 @@ services:
       dockerfile: Dockerfile
     container_name: banking-service-demo
     ports:
-      - "8004:8004"
+      - "8006:8006"
     environment:
       DATABASE_URL: postgresql+asyncpg://banking_user:banking_pass@postgres-banking:5432/banking_db
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
       SERVICE_NAME: "banking-service"
-      SERVICE_PORT: 8004
+      SERVICE_PORT: 8006
     depends_on:
       postgres-banking:
         condition: service_healthy
@@ -364,7 +428,7 @@ services:
       - cuet-api-avengers
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -396,6 +460,9 @@ services:
       REDIS_URL: redis://redis:6379
       USER_SERVICE_URL: http://user-service:8001
       CAMPAIGN_SERVICE_URL: http://campaign-service:8002
+      PAYMENT_SERVICE_URL: http://payment-service:8003
+      DONATION_SERVICE_URL: http://donation-service:8004
+      NOTIFICATION_SERVICE_URL: http://notification-service:8005
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
       SERVICE_NAME: "api-gateway"
@@ -403,6 +470,7 @@ services:
       - redis
       - user-service
       - campaign-service
+      - donation-service
       - jaeger
     networks:
       - cuet-api-avengers

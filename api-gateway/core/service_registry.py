@@ -29,6 +29,7 @@ class ServiceRegistry:
         default_services = {
             "user-service": [settings.USER_SERVICE_URL],
             "campaign-service": [settings.CAMPAIGN_SERVICE_URL],
+            "donation-service": [settings.DONATION_SERVICE_URL],
             "payment-service": [settings.PAYMENT_SERVICE_URL],
             "notification-service": [settings.NOTIFICATION_SERVICE_URL],
         }

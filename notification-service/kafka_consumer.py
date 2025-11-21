@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 ORDER_EVENTS_TOPIC = "order.events"
 PAYMENT_EVENTS_TOPIC = "payment.events"
+DONATION_EVENTS_TOPIC = "donation_created"
 
 class KafkaHandler:
     """Kafka consumer for notification events using Confluent Kafka"""
@@ -34,12 +35,12 @@ class KafkaHandler:
             }
             
             self.consumer = Consumer(config)
-            self.consumer.subscribe([ORDER_EVENTS_TOPIC, PAYMENT_EVENTS_TOPIC])
+            self.consumer.subscribe([ORDER_EVENTS_TOPIC, PAYMENT_EVENTS_TOPIC, DONATION_EVENTS_TOPIC])
             
             self._connected = True
             self._running = True
             logger.info(f"Kafka consumer started, connected to {KAFKA_BOOTSTRAP_SERVERS}")
-            logger.info(f"Subscribed to topics: {ORDER_EVENTS_TOPIC}, {PAYMENT_EVENTS_TOPIC}")
+            logger.info(f"Subscribed to topics: {ORDER_EVENTS_TOPIC}, {PAYMENT_EVENTS_TOPIC}, {DONATION_EVENTS_TOPIC}")
         
         except Exception as e:
             logger.error(f"Failed to start Kafka consumer: {e}")
@@ -105,6 +106,9 @@ class KafkaHandler:
                     
                     elif event_type == "payment.refunded":
                         await self._handle_payment_refunded(event, send_email_async)
+                    
+                    elif event_type == "donation_created":
+                        await self._handle_donation_created(event, notification_log)
                 
                 except Exception as e:
                     logger.error(f"Error processing Kafka event: {e}", exc_info=True)
@@ -180,3 +184,71 @@ Thank you for shopping with us!
         
         logger.info(f"Payment {payment_id} refunded for order {order_id}")
         logger.info(f"Refund confirmation notification ready for order {order_id}")
+    
+    async def _handle_donation_created(self, event: dict, notification_log_func):
+        """Handle donation_created event - Insert notification into database"""
+        from database import SessionLocal
+        from crud import create_notification
+        from models import NotificationChannel
+        
+        donation_id = event.get("donation_id")
+        user_id = event.get("user_id")
+        campaign_id = event.get("campaign_id")
+        amount = event.get("amount")
+        status = event.get("status")
+        payment_method = event.get("payment_method")
+        is_anonymous = event.get("is_anonymous", False)
+        message = event.get("message", "")
+        timestamp = event.get("timestamp")
+        
+        if not user_id or not donation_id:
+            logger.warning(f"Missing required fields in donation event: {event}")
+            return
+        
+        # Create notification ID
+        notification_id = f"notif-donation-{donation_id}-{datetime.utcnow().timestamp()}"
+        
+        # Create notification body
+        body = f"Thank you for your donation of ${amount:.2f} to campaign #{campaign_id}!"
+        if message:
+            body += f"\n\nYour message: {message}"
+        body += f"\n\nDonation ID: {donation_id}"
+        body += f"\nPayment Method: {payment_method}"
+        body += f"\nStatus: {status}"
+        
+        # Insert notification into database
+        db = SessionLocal()
+        try:
+            notification = await create_notification(
+                db=db,
+                notification_id=notification_id,
+                user_id=user_id,
+                notification_type="donation_created",
+                channel=NotificationChannel.IN_APP,
+                body=body,
+                data={
+                    "donation_id": donation_id,
+                    "campaign_id": campaign_id,
+                    "amount": amount,
+                    "payment_method": payment_method,
+                    "is_anonymous": is_anonymous,
+                    "timestamp": timestamp
+                }
+            )
+            
+            logger.info(f"Created notification {notification_id} for donation {donation_id}")
+            
+            # Log notification
+            await notification_log_func(
+                notification_id=notification_id,
+                user_id=user_id,
+                notification_type="donation_created",
+                status="PENDING",
+                body=body
+            )
+        
+        except Exception as e:
+            logger.error(f"Failed to create notification for donation {donation_id}: {e}", exc_info=True)
+        
+        finally:
+            db.close()

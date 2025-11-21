@@ -24,7 +24,6 @@ class CampaignService:
                     title=campaign_data.title,
                     name=campaign_data.name,
                     description=campaign_data.description,
-                    product_id=campaign_data.product_id,
                     start_date=campaign_data.start_date,
                     end_date=campaign_data.end_date,
                     is_active=campaign_data.is_active
@@ -48,7 +47,6 @@ class CampaignService:
                 title=db_campaign.title,
                 name=db_campaign.name,
                 description=db_campaign.description,
-                product_id=db_campaign.product_id,
                 start_date=db_campaign.start_date,
                 end_date=db_campaign.end_date,
                 is_active=db_campaign.is_active,
@@ -85,7 +83,6 @@ class CampaignService:
                 title=db_campaign.title,
                 name=db_campaign.name,
                 description=db_campaign.description,
-                product_id=db_campaign.product_id,
                 start_date=db_campaign.start_date,
                 end_date=db_campaign.end_date,
                 is_active=db_campaign.is_active,
@@ -120,7 +117,6 @@ class CampaignService:
                     title=campaign.title,
                     name=campaign.name,
                     description=campaign.description,
-                    product_id=campaign.product_id,
                     start_date=campaign.start_date,
                     end_date=campaign.end_date,
                     is_active=campaign.is_active,
@@ -155,8 +151,6 @@ class CampaignService:
                     db_campaign.name = campaign_data.name
                 if campaign_data.description is not None:
                     db_campaign.description = campaign_data.description
-                if campaign_data.product_id is not None:
-                    db_campaign.product_id = campaign_data.product_id
                 if campaign_data.start_date is not None:
                     db_campaign.start_date = campaign_data.start_date
                 if campaign_data.end_date is not None:
@@ -182,10 +176,10 @@ class CampaignService:
             
             return CampaignResponse(
                 id=db_campaign.id,
+                campaign_id=db_campaign.campaign_id,
                 title=db_campaign.title,
                 name=db_campaign.name,
                 description=db_campaign.description,
-                product_id=db_campaign.product_id,
                 start_date=db_campaign.start_date,
                 end_date=db_campaign.end_date,
                 is_active=db_campaign.is_active,

@@ -20,7 +20,7 @@ class Donation(Base):
     __tablename__ = "donations"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, nullable=True, index=True)  # Nullable for guest donations
+    user_id = Column(String, nullable=True, index=True)  # Nullable for guest donations (UUID string)
     campaign_id = Column(Integer, nullable=False, index=True)  # Campaign being donated to
     amount = Column(Float, nullable=False)  # Donation amount
     status = Column(Enum(DonationStatus), nullable=False, default=DonationStatus.INITIATED)

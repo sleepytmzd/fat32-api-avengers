@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
     CAMPAIGN_SERVICE_URL: str = os.getenv("CAMPAIGN_SERVICE_URL", "http://campaign-service:8002")
+    DONATION_SERVICE_URL: str = os.getenv("DONATION_SERVICE_URL", "http://donation-service:8004")
     PAYMENT_SERVICE_URL: str = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8003")
     NOTIFICATION_SERVICE_URL: str = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8005")
     
