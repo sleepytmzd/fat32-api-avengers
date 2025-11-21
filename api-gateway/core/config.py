@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     DONATION_SERVICE_URL: str = os.getenv("DONATION_SERVICE_URL", "http://donation-service:8004")
     PAYMENT_SERVICE_URL: str = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8003")
     NOTIFICATION_SERVICE_URL: str = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8005")
+    BANKING_SERVICE_URL: str = os.getenv("BANKING_SERVICE_URL", "http://banking-service:8006")
     
     # Health Check
     HEALTH_CHECK_INTERVAL: int = 30

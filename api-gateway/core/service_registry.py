@@ -32,6 +32,7 @@ class ServiceRegistry:
             "donation-service": [settings.DONATION_SERVICE_URL],
             "payment-service": [settings.PAYMENT_SERVICE_URL],
             "notification-service": [settings.NOTIFICATION_SERVICE_URL],
+            "banking-service": [settings.BANKING_SERVICE_URL],
         }
         
         for service_name, instances in default_services.items():

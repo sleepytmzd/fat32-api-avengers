@@ -8,20 +8,17 @@ from confluent_kafka import Consumer, Producer, KafkaError
 from decimal import Decimal
 import asyncio
 from functools import partial
-import httpx
 
 from database import AsyncSessionLocal
 from models import PaymentCreate, PaymentStatus, PaymentMethod
-from crud import create_payment, update_payment_status, process_refund
+from crud import create_payment
 
 logger = logging.getLogger(__name__)
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-BANKING_SERVICE_URL = os.getenv("BANKING_SERVICE_URL", "http://banking-service:8004")
-ORDER_EVENTS_TOPIC = "order.events"
+BANKING_SERVICE_URL = os.getenv("BANKING_SERVICE_URL", "http://banking-service:8006")
 PAYMENT_EVENTS_TOPIC = "payment.events"
 DONATION_EVENTS_TOPIC = "donation_created"
-BANKING_SERVICE_URL = os.getenv("BANKING_SERVICE_URL", "http://banking-service:8006")
 
 class KafkaHandler:
     """Kafka consumer and producer for Payment Service using Confluent Kafka"""
@@ -51,7 +48,7 @@ class KafkaHandler:
             }
             
             self.consumer = Consumer(consumer_config)
-            self.consumer.subscribe([ORDER_EVENTS_TOPIC, DONATION_EVENTS_TOPIC])
+            self.consumer.subscribe([DONATION_EVENTS_TOPIC])
             
             self.producer = Producer(producer_config)
             
@@ -137,13 +134,7 @@ class KafkaHandler:
                     
                     logger.info(f"Received Kafka event: {event_type}")
                     
-                    if event_type == "order.created":
-                        await self._handle_order_created(event)
-                    
-                    elif event_type == "order.cancelled":
-                        await self._handle_order_cancelled(event)
-                    
-                    elif event_type == "donation_created":
+                    if event_type == "donation_created":
                         await self._handle_donation_created(event)
                 
                 except Exception as e:
@@ -152,158 +143,13 @@ class KafkaHandler:
         except Exception as e:
             logger.error(f"Kafka consumer error: {e}", exc_info=True)
     
-    async def _handle_order_created(self, event: dict):
-        """
-        Handle order.created event
-        Create payment and process it
-        """
-        order_id = event.get("order_id")
-        user_id = event.get("user_id")
-        amount = Decimal(str(event.get("total_amount")))
-        currency = event.get("currency", "USD")
-        payment_method = event.get("payment_method", "card")
-        
-        logger.info(f"Processing payment for order {order_id}")
-        
-        async with AsyncSessionLocal() as db:
-            try:
-                # Create payment record
-                payment_data = PaymentCreate(
-                    user_id=user_id,
-                    order_id=order_id,
-                    amount=amount,
-                    currency=currency,
-                    payment_method=PaymentMethod(payment_method),
-                    status=PaymentStatus.PENDING
-                )
-                
-                payment = await create_payment(db, payment_data)
-                payment_id = str(payment.id)
-                
-                # Call banking service to debit account
-                success = False
-                failure_reason = None
-                
-                try:
-                    async with httpx.AsyncClient(timeout=10.0) as client:
-                        response = await client.post(
-                            f"{BANKING_SERVICE_URL}/internal/debit",
-                            json={
-                                "user_id": user_id,
-                                "amount": float(amount)
-                            }
-                        )
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            success = result.get("success", False)
-                            if not success:
-                                failure_reason = result.get("message", "Debit failed")
-                        else:
-                            failure_reason = f"Banking service error: {response.status_code}"
-                            logger.error(f"Banking service returned {response.status_code}: {response.text}")
-                
-                except httpx.RequestError as e:
-                    failure_reason = f"Banking service unavailable: {str(e)}"
-                    logger.error(f"Failed to reach banking service: {e}")
-                
-                except Exception as e:
-                    failure_reason = f"Banking service error: {str(e)}"
-                    logger.error(f"Error calling banking service: {e}", exc_info=True)
-                
-                if success:
-                    # Payment successful
-                    payment = await update_payment_status(
-                        db,
-                        payment_id,
-                        PaymentStatus.COMPLETED
-                    )
-                    
-                    payment.transaction_id = f"TXN-{payment.id}"
-                    await db.commit()
-                    
-                    logger.info(f"Payment {payment_id} completed successfully")
-                    
-                    # Publish payment.completed event
-                    await self._publish_event({
-                        "event_type": "payment.completed",
-                        "payment_id": payment_id,
-                        "order_id": order_id,
-                        "user_id": user_id,
-                        "amount": float(amount),
-                        "transaction_id": payment.transaction_id,
-                        "timestamp": payment.completed_at.isoformat() if payment.completed_at else None
-                    })
-                
-                else:
-                    # Payment failed
-                    payment = await update_payment_status(
-                        db,
-                        payment_id,
-                        PaymentStatus.FAILED
-                    )
-                    
-                    payment.failure_reason = failure_reason or "Payment declined"
-                    await db.commit()
-                    
-                    logger.warning(f"Payment {payment_id} failed: {payment.failure_reason}")
-                    
-                    # Publish payment.failed event
-                    await self._publish_event({
-                        "event_type": "payment.failed",
-                        "payment_id": payment_id,
-                        "order_id": order_id,
-                        "user_id": user_id,
-                        "reason": payment.failure_reason,
-                        "timestamp": payment.updated_at.isoformat() if payment.updated_at else None
-                    })
-            
-            except Exception as e:
-                logger.error(f"Error processing payment for order {order_id}: {e}", exc_info=True)
-    
-    async def _handle_order_cancelled(self, event: dict):
-        """
-        Handle order.cancelled event
-        Refund payment if exists
-        """
-        order_id = event.get("order_id")
-        payment_id = event.get("payment_id")
-        
-        if not payment_id:
-            logger.info(f"No payment to refund for cancelled order {order_id}")
-            return
-        
-        logger.info(f"Processing refund for cancelled order {order_id}")
-        
-        async with AsyncSessionLocal() as db:
-            try:
-                payment = await process_refund(
-                    db,
-                    payment_id,
-                    reason="Order cancelled"
-                )
-                
-                if payment:
-                    logger.info(f"Refunded payment {payment_id}")
-                    
-                    # Publish payment.refunded event
-                    await self._publish_event({
-                        "event_type": "payment.refunded",
-                        "payment_id": payment_id,
-                        "order_id": order_id,
-                        "user_id": str(payment.user_id),
-                        "amount": float(payment.amount),
-                        "reason": payment.refund_reason,
-                        "timestamp": payment.refunded_at.isoformat() if payment.refunded_at else None
-                    })
-            
-            except Exception as e:
-                logger.error(f"Error refunding payment {payment_id}: {e}", exc_info=True)
-    
     async def _handle_donation_created(self, event: dict):
         """
         Handle donation_created event
-        Verify funds with banking service and create payment record
+        1. Verify funds with banking service
+        2. Debit the account
+        3. Create payment record
+        4. Publish payment.verified or payment.failed event
         """
         donation_id = event.get("donation_id")
         user_id = event.get("user_id")
@@ -311,15 +157,17 @@ class KafkaHandler:
         amount = Decimal(str(event.get("amount")))
         payment_method = event.get("payment_method", "card")
         
-        logger.info(f"Processing payment verification for donation {donation_id}")
+        logger.info(f"🔄 Processing payment for donation {donation_id} - User: {user_id}, Amount: ${amount}")
         
         async with AsyncSessionLocal() as db:
+            payment_id = None
             try:
                 # Step 1: Verify funds with banking service
-                has_sufficient_funds = await self._verify_funds_with_banking(user_id, amount)
+                logger.info(f"Step 1: Checking balance for user {user_id}...")
+                has_sufficient_funds, balance_info = await self._verify_funds_with_banking(user_id, amount)
                 
                 if not has_sufficient_funds:
-                    logger.warning(f"Insufficient funds for user {user_id}, amount: {amount}")
+                    logger.warning(f"❌ Insufficient funds - User: {user_id}, Required: ${amount}, Available: ${balance_info.get('current_balance', 0)}")
                     
                     # Publish payment failed event
                     await self._publish_event({
@@ -328,15 +176,39 @@ class KafkaHandler:
                         "user_id": user_id,
                         "campaign_id": campaign_id,
                         "amount": float(amount),
-                        "reason": "Insufficient funds",
+                        "reason": f"Insufficient funds. Available: ${balance_info.get('current_balance', 0)}",
                         "timestamp": asyncio.get_event_loop().time()
                     })
                     return
                 
-                # Step 2: Create payment record
+                logger.info(f"✅ Step 1 Complete: User has sufficient funds")
+                
+                # Step 2: Debit the account
+                logger.info(f"Step 2: Debiting ${amount} from user {user_id}...")
+                debit_success, debit_message, new_balance = await self._debit_account(user_id, amount)
+                
+                if not debit_success:
+                    logger.error(f"❌ Debit failed: {debit_message}")
+                    
+                    # Publish payment failed event
+                    await self._publish_event({
+                        "event_type": "payment.failed",
+                        "donation_id": donation_id,
+                        "user_id": user_id,
+                        "campaign_id": campaign_id,
+                        "amount": float(amount),
+                        "reason": f"Debit failed: {debit_message}",
+                        "timestamp": asyncio.get_event_loop().time()
+                    })
+                    return
+                
+                logger.info(f"✅ Step 2 Complete: Account debited. New balance: ${new_balance}")
+                
+                # Step 3: Create payment record
+                logger.info(f"Step 3: Creating payment record...")
                 payment_data = PaymentCreate(
                     user_id=user_id,
-                    order_id=str(donation_id),  # Use donation_id as order_id
+                    order_id=str(donation_id),
                     amount=amount,
                     currency="USD",
                     payment_method=PaymentMethod(payment_method),
@@ -348,9 +220,10 @@ class KafkaHandler:
                 payment.transaction_id = f"TXN-DONATION-{donation_id}"
                 await db.commit()
                 
-                logger.info(f"✅ Payment {payment_id} created and verified for donation {donation_id}")
+                logger.info(f"✅ Step 3 Complete: Payment record created - ID: {payment_id}")
                 
-                # Step 3: Publish payment verified event
+                # Step 4: Publish payment verified event
+                logger.info(f"Step 4: Publishing payment.verified event...")
                 await self._publish_event({
                     "event_type": "payment.verified",
                     "payment_id": payment_id,
@@ -360,11 +233,14 @@ class KafkaHandler:
                     "amount": float(amount),
                     "transaction_id": payment.transaction_id,
                     "status": "completed",
+                    "new_balance": float(new_balance),
                     "timestamp": payment.created_at.isoformat() if payment.created_at else None
                 })
+                
+                logger.info(f"🎉 Payment processing complete for donation {donation_id}!")
             
             except Exception as e:
-                logger.error(f"Error processing payment for donation {donation_id}: {e}", exc_info=True)
+                logger.error(f"💥 Error processing payment for donation {donation_id}: {e}", exc_info=True)
                 
                 # Publish payment failed event
                 await self._publish_event({
@@ -373,40 +249,81 @@ class KafkaHandler:
                     "user_id": user_id,
                     "campaign_id": campaign_id,
                     "amount": float(amount),
-                    "reason": str(e),
+                    "reason": f"Payment processing error: {str(e)}",
                     "timestamp": asyncio.get_event_loop().time()
                 })
     
-    async def _verify_funds_with_banking(self, user_id: str, amount: Decimal) -> bool:
+    async def _verify_funds_with_banking(self, user_id: str, amount: Decimal) -> tuple[bool, dict]:
         """
         Verify if user has sufficient funds via banking service HTTP request
+        Returns: (has_sufficient_funds, balance_info)
         """
         import aiohttp
         
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"{BANKING_SERVICE_URL}/verify-funds"
+                # Use the correct banking service endpoint
+                url = f"{BANKING_SERVICE_URL}/internal/balance/{user_id}"
+                params = {"amount": float(amount)}
+                
+                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        has_funds = data.get("has_sufficient_balance", False)
+                        current_balance = data.get("current_balance", 0)
+                        logger.info(f"🏦 Banking check - User: {user_id}, Has Funds: {has_funds}, Balance: ${current_balance}")
+                        return has_funds, data
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Banking service returned status {response.status}: {error_text}")
+                        return False, {"error": f"Banking service error: {response.status}"}
+        
+        except asyncio.TimeoutError:
+            logger.error(f"⏰ Banking service timeout for user {user_id}")
+            return False, {"error": "Banking service timeout"}
+        except Exception as e:
+            logger.error(f"💥 Error calling banking service: {e}")
+            return False, {"error": str(e)}
+    
+    async def _debit_account(self, user_id: str, amount: Decimal) -> tuple[bool, str, Decimal]:
+        """
+        Debit amount from user's bank account via banking service HTTP request
+        Returns: (success, message, new_balance)
+        """
+        import aiohttp
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{BANKING_SERVICE_URL}/internal/debit"
                 payload = {
                     "user_id": user_id,
-                    "amount": int(amount)  # Send as integer
+                    "amount": float(amount)
                 }
                 
                 async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as response:
                     if response.status == 200:
                         data = await response.json()
-                        has_funds = data.get("sufficient_funds", False)
-                        logger.info(f"Banking service response for user {user_id}: sufficient_funds={has_funds}")
-                        return has_funds
+                        success = data.get("success", False)
+                        message = data.get("message", "")
+                        new_balance = Decimal(str(data.get("new_balance", 0)))
+                        
+                        if success:
+                            logger.info(f"💰 Debit successful - User: {user_id}, Amount: ${amount}, New Balance: ${new_balance}")
+                        else:
+                            logger.warning(f"⚠️ Debit failed - User: {user_id}, Reason: {message}")
+                        
+                        return success, message, new_balance
                     else:
-                        logger.error(f"Banking service returned status {response.status}")
-                        return False
+                        error_text = await response.text()
+                        logger.error(f"Banking service debit failed with status {response.status}: {error_text}")
+                        return False, f"Banking service error: {response.status}", Decimal("0")
         
         except asyncio.TimeoutError:
-            logger.error(f"Banking service timeout for user {user_id}")
-            return False
+            logger.error(f"⏰ Banking service timeout during debit for user {user_id}")
+            return False, "Banking service timeout", Decimal("0")
         except Exception as e:
-            logger.error(f"Error calling banking service: {e}")
-            return False
+            logger.error(f"💥 Error calling banking service debit: {e}")
+            return False, str(e), Decimal("0")
     
     async def _publish_event(self, event: dict):
         """Publish event to payment events topic"""
