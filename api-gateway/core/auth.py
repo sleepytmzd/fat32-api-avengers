@@ -25,7 +25,7 @@ PUBLIC_PATHS = [
     r"^user-service/auth/register$",
     r"^user-service/auth/login$",
     r"^user-service/auth/forgot-password$",
-    r"^product-service/products.*",  # Public product browsing (GET only in handler)
+    r"^campaign-service/campaigns.*",  # Public product browsing (GET only in handler)
     r".*/health$",
     r".*/docs.*",
 ]
@@ -33,8 +33,8 @@ PUBLIC_PATHS = [
 # Admin-only paths
 ADMIN_PATHS = [
     r"^user-service/users.*",  # User management
-    r"^product-service/admin/.*",
-    r"^order-service/admin/.*",
+    r"^campaign-service/admin/.*",
+    r"^donation-service/admin/.*",
 ]
 
 def is_public_path(service: str, path: str) -> bool:
