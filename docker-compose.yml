@@ -148,6 +148,46 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL for Donation Service
+  postgres-donation:
+    image: postgres:15-alpine
+    container_name: postgres-donation-demo
+    environment:
+      POSTGRES_USER: donation_user
+      POSTGRES_PASSWORD: donation_pass
+      POSTGRES_DB: donation_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - ./data/donation:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U donation_user -d donation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Banking Service
+  postgres-banking:
+    image: postgres:15-alpine
+    container_name: postgres-banking-demo
+    environment:
+      POSTGRES_USER: banking_user
+      POSTGRES_PASSWORD: banking_pass
+      POSTGRES_DB: banking_db
+    ports:
+      - "5438:5432"
+    volumes:
+      - ./data/banking:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U banking_user -d banking_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for Gateway
   redis:
     image: redis:7-alpine
@@ -251,6 +291,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://notification_user:notification_pass@postgres-notification:5432/notification_db
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
       SERVICE_NAME: "notification-service"
       SERVICE_PORT: 8005
     depends_on:
@@ -258,6 +300,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     networks:
       - cuet-api-avengers
     restart: unless-stopped
@@ -287,6 +331,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://payment_user:payment_pass@postgres-payment:5432/payment_db
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BANKING_SERVICE_URL: http://banking-service:8006
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
       SERVICE_NAME: "payment-service"
@@ -295,6 +340,8 @@ services:
       postgres-payment:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      banking-service:
         condition: service_healthy
     networks:
       - cuet-api-avengers
@@ -312,6 +359,87 @@ services:
         labels: "service,version"
     labels:
       - "service=payment-service"
+      - "version=v1"
+
+  # Donation Service
+  donation-service:
+    build:
+      context: ./donation-service
+      dockerfile: Dockerfile
+    container_name: donation-service-demo
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql://donation_user:donation_pass@postgres-donation:5432/donation_db
+      CAMPAIGN_GRPC_URL: campaign-service:50051
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
+      SERVICE_NAME: "donation-service"
+      SERVICE_PORT: 8004
+    depends_on:
+      postgres-donation:
+        condition: service_healthy
+      campaign-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=donation-service"
+      - "version=v1"
+
+  # Banking Service
+  banking-service:
+    build:
+      context: ./banking-service
+      dockerfile: Dockerfile
+    container_name: banking-service-demo
+    ports:
+      - "8006:8006"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://banking_user:banking_pass@postgres-banking:5432/banking_db
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
+      SERVICE_NAME: "banking-service"
+      SERVICE_PORT: 8006
+    depends_on:
+      postgres-banking:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=banking-service"
       - "version=v1"
 
   
@@ -332,6 +460,9 @@ services:
       REDIS_URL: redis://redis:6379
       USER_SERVICE_URL: http://user-service:8001
       CAMPAIGN_SERVICE_URL: http://campaign-service:8002
+      PAYMENT_SERVICE_URL: http://payment-service:8003
+      DONATION_SERVICE_URL: http://donation-service:8004
+      NOTIFICATION_SERVICE_URL: http://notification-service:8005
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
       SERVICE_NAME: "api-gateway"
@@ -339,6 +470,7 @@ services:
       - redis
       - user-service
       - campaign-service
+      - donation-service
       - jaeger
     networks:
       - cuet-api-avengers

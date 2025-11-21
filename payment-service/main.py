@@ -2,7 +2,8 @@
 Payment Service - Payment processing and tracking
 """
 import asyncio
-from fastapi import FastAPI, HTTPException, Header, Depends, Query
+import os
+from fastapi import FastAPI, HTTPException, Header, Depends, Query, Request
 from typing import Optional, List
 from datetime import datetime
 import logging
@@ -23,6 +24,7 @@ from crud import (
 )
 from kafka_handler import KafkaHandler
 from prometheus_fastapi_instrumentator import Instrumentator
+from config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,8 +35,31 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Initialize tracing
+try:
+    from middleware.tracing import init_tracing
+    
+    if settings.TRACING_ENABLED:
+        init_tracing(app, service_name=settings.SERVICE_NAME, jaeger_endpoint=settings.JAEGER_ENDPOINT)
+        logger.info(f"Tracing initialized successfully - Service: {settings.SERVICE_NAME}")
+    else:
+        logger.info("Tracing disabled by configuration")
+except Exception as e:
+    logger.warning(f"Failed to initialize tracing: {e}")
+
 kafka_handler = KafkaHandler()
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+# Add logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Logging middleware with trace correlation"""
+    try:
+        from middleware.logging import logging_middleware
+        return await logging_middleware(request, call_next)
+    except Exception as e:
+        logger.warning(f"Logging middleware error: {e}")
+        return await call_next(request)
 
 @app.on_event("startup")
 async def startup():

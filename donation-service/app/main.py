@@ -7,7 +7,7 @@ import uvicorn
 
 from app.core.config import get_settings
 from app.database.database import init_db, close_db
-from app.api.orders import router as orders_router
+from app.api.donation import router as orders_router
 from app.kafka.producer import kafka_producer
 from app.middleware.tracing import init_tracing
 from app.middleware.metrics import MetricsMiddleware, metrics_endpoint

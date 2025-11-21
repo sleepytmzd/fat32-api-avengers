@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import get_settings
-from app.models.order import Base
+from app.models.donation import Base
 import structlog
 import time
 

@@ -8,7 +8,6 @@ class CreateCampaignRequest(BaseModel):
     title: str = Field(..., min_length=1, description="Campaign title is required")
     name: str = Field(..., min_length=1, description="Campaign name is required")
     description: Optional[str] = Field(None, description="Campaign description")
-    product_id: int = Field(..., gt=0, description="Product ID must be greater than 0")
     start_date: datetime = Field(..., description="Campaign start date")
     end_date: datetime = Field(..., description="Campaign end date")
     is_active: bool = Field(default=True, description="Whether campaign is active")
@@ -19,7 +18,6 @@ class CreateCampaignRequest(BaseModel):
                 "title": "Summer Sale 2025",
                 "name": "summer-sale-2025",
                 "description": "Get amazing deals this summer",
-                "product_id": 1,
                 "start_date": "2025-06-01T00:00:00Z",
                 "end_date": "2025-08-31T23:59:59Z",
                 "is_active": True
@@ -33,7 +31,6 @@ class UpdateCampaignRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, description="Campaign title")
     name: Optional[str] = Field(None, min_length=1, description="Campaign name")
     description: Optional[str] = Field(None, description="Campaign description")
-    product_id: Optional[int] = Field(None, gt=0, description="Product ID")
     start_date: Optional[datetime] = Field(None, description="Campaign start date")
     end_date: Optional[datetime] = Field(None, description="Campaign end date")
     is_active: Optional[bool] = Field(None, description="Whether campaign is active")
@@ -55,7 +52,6 @@ class CampaignResponse(BaseModel):
     title: str
     name: str
     description: Optional[str]
-    product_id: int
     start_date: datetime
     end_date: datetime
     is_active: bool
@@ -70,7 +66,6 @@ class CampaignResponse(BaseModel):
                 "title": "Summer Sale 2025",
                 "name": "summer-sale-2025",
                 "description": "Get amazing deals this summer",
-                "product_id": 1,
                 "start_date": "2025-06-01T00:00:00Z",
                 "end_date": "2025-08-31T23:59:59Z",
                 "is_active": True,
@@ -95,7 +90,6 @@ class CampaignListResponse(BaseModel):
                         "title": "Summer Sale 2025",
                         "name": "summer-sale-2025",
                         "description": "Get amazing deals this summer",
-                        "product_id": 1,
                         "start_date": "2025-06-01T00:00:00Z",
                         "end_date": "2025-08-31T23:59:59Z",
                         "is_active": True,

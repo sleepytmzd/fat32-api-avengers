@@ -12,7 +12,6 @@ class Campaign(Base):
     title = Column(String, nullable=False, index=True)
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    product_id = Column(Integer, nullable=False, index=True)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
@@ -20,4 +19,4 @@ class Campaign(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     def __repr__(self):
-        return f"<Campaign(id={self.id}, title='{self.title}', name='{self.name}', is_active={self.is_active})>"
+        return f"<Campaign(id={self.id}, title='{self.title}', is_active={self.is_active})>"

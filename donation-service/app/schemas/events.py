@@ -7,7 +7,7 @@ class DonationCreatedEvent(BaseModel):
     """Schema for donation_created Kafka event"""
     event_type: str = "donation_created"
     donation_id: int
-    user_id: Optional[int]
+    user_id: Optional[str]
     campaign_id: int
     amount: float
     status: str
@@ -20,7 +20,7 @@ class DonationCreatedEvent(BaseModel):
             "example": {
                 "event_type": "donation_created",
                 "donation_id": 123,
-                "user_id": 456,
+                "user_id": "user-456-def",
                 "campaign_id": 5,
                 "amount": 100.00,
                 "status": "initiated",
@@ -35,7 +35,7 @@ class DonationCapturedEvent(BaseModel):
     """Schema for donation_captured Kafka event"""
     event_type: str = "donation_captured"
     donation_id: int
-    user_id: Optional[int]
+    user_id: Optional[str]
     campaign_id: int
     amount: float
     payment_id: str
@@ -46,7 +46,7 @@ class DonationCapturedEvent(BaseModel):
             "example": {
                 "event_type": "donation_captured",
                 "donation_id": 123,
-                "user_id": 456,
+                "user_id": "user-456-def",
                 "campaign_id": 5,
                 "amount": 100.00,
                 "payment_id": "pi_1234567890",
@@ -59,7 +59,7 @@ class DonationFailedEvent(BaseModel):
     """Schema for donation_failed Kafka event"""
     event_type: str = "donation_failed"
     donation_id: int
-    user_id: Optional[int]
+    user_id: Optional[str]
     campaign_id: int
     amount: float
     reason: str
@@ -70,7 +70,7 @@ class DonationFailedEvent(BaseModel):
             "example": {
                 "event_type": "donation_failed",
                 "donation_id": 123,
-                "user_id": 456,
+                "user_id": "user-456-def",
                 "campaign_id": 5,
                 "amount": 100.00,
                 "reason": "Insufficient funds",

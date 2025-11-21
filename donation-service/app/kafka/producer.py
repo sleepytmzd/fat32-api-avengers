@@ -46,6 +46,64 @@ class KafkaProducer:
                 logger.info("Kafka producer stopped")
             except Exception as e:
                 logger.error("Error stopping Kafka producer", error=str(e))
+    
+    async def publish_donation_created(self, donation_data: dict):
+        """
+        Publish donation_created event to Kafka for notification service
+        
+        Args:
+            donation_data: Dictionary containing donation information
+        """
+        if not self.producer:
+            logger.error("Kafka producer not initialized")
+            return
+            
+        try:
+            event = {
+                "event_type": "donation_created",
+                "donation_id": donation_data.get("id"),
+                "user_id": donation_data.get("user_id"),
+                "campaign_id": donation_data.get("campaign_id"),
+                "amount": float(donation_data.get("amount", 0)),
+                "status": donation_data.get("status", "initiated"),
+                "payment_method": donation_data.get("payment_method"),
+                "is_anonymous": donation_data.get("is_anonymous", False),
+                "message": donation_data.get("message"),
+                "timestamp": donation_data.get("created_at")
+            }
+            
+            # Send to Kafka
+            await self.producer.send_and_wait(
+                settings.kafka_topic_donation_created,
+                value=event
+            )
+            
+            print(f"[KAFKA] ✓ Published donation_created event - donation_id: {event['donation_id']}, topic: {settings.kafka_topic_donation_created}")
+            sys.stdout.flush()
+            
+            logger.info(
+                "Published donation_created event",
+                donation_id=event["donation_id"],
+                topic=settings.kafka_topic_donation_created
+            )
+            sys.stdout.flush()
+            
+        except KafkaError as e:
+            print(f"[KAFKA] ✗ Failed to publish - donation_id: {donation_data.get('id')}, error: {e}")
+            sys.stdout.flush()
+            logger.error(
+                "Failed to publish donation_created event",
+                donation_id=donation_data.get("id"),
+                error=str(e)
+            )
+        except Exception as e:
+            print(f"[KAFKA] ✗ Unexpected error - donation_id: {donation_data.get('id')}, error: {e}")
+            sys.stdout.flush()
+            logger.error(
+                "Unexpected error publishing to Kafka",
+                donation_id=donation_data.get("id"),
+                error=str(e)
+            )
                 
     async def publish_order_created(self, order_data: dict):
         """

@@ -8,24 +8,26 @@ from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-import structlog
 import logging
-
-from core.config import get_settings
 
 # Disable verbose logging from OpenTelemetry
 logging.getLogger("opentelemetry").setLevel(logging.WARNING)
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def init_tracing(app):
     """Initialize OpenTelemetry tracing with Jaeger exporter"""
     try:
+        from core.config import settings
+        
+        if not settings.TRACING_ENABLED:
+            logger.info("Tracing disabled by configuration")
+            return False
+        
         # Create resource with service name
         resource = Resource(attributes={
-            SERVICE_NAME: "api-gateway"
+            SERVICE_NAME: settings.SERVICE_NAME
         })
         
         # Create tracer provider
@@ -33,7 +35,7 @@ def init_tracing(app):
         
         # Configure Jaeger exporter - use HTTP collector endpoint
         jaeger_exporter = JaegerExporter(
-            collector_endpoint=settings.jaeger_endpoint,
+            collector_endpoint=settings.JAEGER_ENDPOINT,
         )
         
         # Add span processor with batching
@@ -49,20 +51,9 @@ def init_tracing(app):
         # Set global tracer provider
         trace.set_tracer_provider(provider)
         
-        # Custom request hook to exclude health and metrics endpoints
-        def exclude_health_metrics(span, scope):
-            if scope:
-                path = scope.get("path", "")
-                # Don't trace health and metrics endpoints
-                if path in ["/health", "/metrics", "/api/health", "/api/metrics"]:
-                    span.set_attribute("http.route", "excluded")
-                    # Mark span to be dropped by setting sampling decision
-                    return
-        
-        # Instrument FastAPI with custom hook
+        # Instrument FastAPI - exclude health and metrics endpoints
         FastAPIInstrumentor.instrument_app(
-            app, 
-            server_request_hook=exclude_health_metrics,
+            app,
             excluded_urls="/health,/metrics,/api/health,/api/metrics"
         )
         
@@ -70,15 +61,13 @@ def init_tracing(app):
         HTTPXClientInstrumentor().instrument()
         
         logger.info(
-            "OpenTelemetry tracing initialized successfully",
-            service_name="api-gateway",
-            jaeger_endpoint=settings.jaeger_endpoint
+            f"OpenTelemetry tracing initialized - Service: {settings.SERVICE_NAME}, Endpoint: {settings.JAEGER_ENDPOINT}"
         )
         
         return True
         
     except Exception as e:
-        logger.error("Failed to initialize tracing", error=str(e), exc_info=True)
+        logger.error(f"Failed to initialize tracing: {e}", exc_info=True)
         # Don't fail startup if tracing fails
         return False
 
