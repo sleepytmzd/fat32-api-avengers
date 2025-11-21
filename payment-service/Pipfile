@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "==0.109.0"
+uvicorn = {extras = ["standard"], version = "==0.27.0"}
+sqlalchemy = "==2.0.25"
+asyncpg = "==0.29.0"
+pydantic = "==2.5.3"
+pydantic-settings = "==2.1.0"
+python-dotenv = "==1.0.0"
+aiokafka = "==0.8.1"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"

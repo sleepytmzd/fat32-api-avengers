@@ -1,0 +1,23 @@
+# Notification Service Dependencies
+
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic[email]==2.5.3
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# Database
+sqlalchemy[asyncio]==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# Kafka
+confluent-kafka==2.3.0
+
+# Monitoring
+prometheus-fastapi-instrumentator
+
+# For production notification providers (optional)
+# sendgrid==6.10.0
+# twilio==8.10.0
+# firebase-admin==6.3.0
