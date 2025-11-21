@@ -22,19 +22,19 @@ security = HTTPBearer(auto_error=False)
 
 # Public paths that don't require authentication
 PUBLIC_PATHS = [
-    r"^user-service/auth/register$",
-    r"^user-service/auth/login$",
-    r"^user-service/auth/forgot-password$",
-    r"^campaign-service/campaigns.*",  # Public product browsing (GET only in handler)
+    r"^/api/v1/user-service/auth/register$",
+    r"^/api/v1/user-service/auth/login$",
+    r"^/api/v1/user-service/auth/forgot-password$",
+    r"^/api/v1/campaign-service/campaigns.*",  # Public product browsing (GET only in handler)
     r".*/health$",
     r".*/docs.*",
 ]
 
 # Admin-only paths
 ADMIN_PATHS = [
-    r"^user-service/users.*",  # User management
-    r"^campaign-service/admin/.*",
-    r"^donation-service/admin/.*",
+    r"^/api/v1/user-service/users.*",  # User management
+    r"^/api/v1/campaign-service/admin/.*",
+    r"^/api/v1/donation-service/admin/.*",
 ]
 
 def is_public_path(service: str, path: str) -> bool:
