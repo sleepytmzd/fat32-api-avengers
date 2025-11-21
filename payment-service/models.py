@@ -41,7 +41,8 @@ class Payment(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    order_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    donation_id = Column(String(255), nullable=True, index=True)  # Donation ID (for donation payments)
+    campaign_id = Column(String(255), nullable=True, index=True)  # Campaign ID (optional)
     
     # Payment details
     amount = Column(Numeric(10, 2), nullable=False)
@@ -67,7 +68,8 @@ class Payment(Base):
 class PaymentBase(BaseModel):
     """Base payment model"""
     user_id: str
-    order_id: str
+    donation_id: Optional[str] = None
+    campaign_id: Optional[str] = None
     amount: Decimal = Field(..., gt=0)
     currency: str = Field(default="USD", max_length=3)
     payment_method: PaymentMethod
@@ -87,7 +89,8 @@ class PaymentResponse(BaseModel):
     """Payment response model"""
     id: uuid.UUID
     user_id: uuid.UUID
-    order_id: uuid.UUID
+    donation_id: Optional[str] = None
+    campaign_id: Optional[str] = None
     amount: Decimal
     currency: str
     payment_method: PaymentMethod

@@ -124,11 +124,60 @@ class KafkaHandler:
     
     async def _handle_payment_failed(self, event: dict, send_email_func):
         """Handle payment.failed event - Send payment failure notification"""
-        order_id = event.get("order_id")
+        from database import AsyncSessionLocal
+        from crud import create_notification
+        from models import NotificationChannel, NotificationStatus
+        
+        donation_id = event.get("donation_id")
+        user_id = event.get("user_id")
+        campaign_id = event.get("campaign_id")
+        amount = event.get("amount")
         reason = event.get("reason", "Unknown error")
         
-        logger.warning(f"Payment failed for order {order_id}: {reason}")
-        logger.info(f"Payment failure notification ready for order {order_id}")
+        reference_id = donation_id
+        reference_type = "donation"
+        
+        logger.warning(f"Payment failed for {reference_type} {reference_id}: {reason}")
+        
+        if not user_id or not reference_id:
+            logger.warning(f"Missing required fields in payment.failed event: {event}")
+            return
+        
+        # Create notification ID
+        notification_id = f"notif-payment-failed-{reference_id}-{datetime.utcnow().timestamp()}"
+        
+        # Create notification body
+        body = f"❌ Payment Failed\n\n"
+        body += f"Your payment of ${amount:.2f} could not be processed.\n\n"
+        body += f"Reason: {reason}\n\n"
+        if campaign_id:
+            body += f"Campaign ID: {campaign_id}\n"
+        body += f"Donation ID: {donation_id}\n"
+        body += f"\nPlease check your account balance and try again."
+        
+        # Insert notification into database
+        async with AsyncSessionLocal() as db:
+            try:
+                notification = await create_notification(
+                    db=db,
+                    notification_id=notification_id,
+                    user_id=user_id,
+                    notification_type="payment_failed",
+                    channel=NotificationChannel.IN_APP,
+                    body=body,
+                    status=NotificationStatus.PENDING,
+                    data={
+                        "donation_id": donation_id,
+                        "campaign_id": campaign_id,
+                        "amount": amount,
+                        "reason": reason
+                    }
+                )
+                
+                logger.info(f"✅ Created payment failure notification {notification_id} for {reference_type} {reference_id}")
+            
+            except Exception as e:
+                logger.error(f"Failed to create payment failure notification: {e}", exc_info=True)
     
     async def _handle_payment_refunded(self, event: dict, send_email_func):
         """Handle payment.refunded event - Send refund confirmation"""

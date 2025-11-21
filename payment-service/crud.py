@@ -22,8 +22,9 @@ async def create_payment(db: AsyncSession, payment_data: PaymentCreate) -> Payme
     await db.commit()
     await db.refresh(payment)
     
+    reference = payment.donation_id or "N/A"
     logger.info(
-        f"Created payment {payment.id} for order {payment.order_id}, "
+        f"Created payment {payment.id} for donation {reference}, "
         f"amount: {payment.amount} {payment.currency}"
     )
     return payment
@@ -39,10 +40,10 @@ async def get_payment_by_id(db: AsyncSession, payment_id: str) -> Optional[Payme
     )
     return result.scalar_one_or_none()
 
-async def get_payment_by_order_id(db: AsyncSession, order_id: str) -> Optional[Payment]:
-    """Get payment by order ID"""
+async def get_payment_by_donation_id(db: AsyncSession, donation_id: str) -> Optional[Payment]:
+    """Get payment by donation ID"""
     result = await db.execute(
-        select(Payment).where(Payment.order_id == order_id)
+        select(Payment).where(Payment.donation_id == donation_id)
     )
     return result.scalar_one_or_none()
 

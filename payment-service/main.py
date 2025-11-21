@@ -17,7 +17,7 @@ from models import (
 from crud import (
     create_payment,
     get_payment_by_id,
-    get_payment_by_order_id,
+    get_payment_by_donation_id,
     get_user_payments,
     update_payment_status,
     process_refund

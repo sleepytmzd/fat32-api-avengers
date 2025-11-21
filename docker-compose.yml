@@ -422,8 +422,8 @@ services:
     depends_on:
       postgres-banking:
         condition: service_healthy
-      jaeger:
-        condition: service_started
+      # jaeger:
+      #   condition: service_started
     networks:
       - cuet-api-avengers
     restart: unless-stopped
@@ -463,6 +463,7 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:8003
       DONATION_SERVICE_URL: http://donation-service:8004
       NOTIFICATION_SERVICE_URL: http://notification-service:8005
+      BANKING_SERVICE_URL: http://banking-service:8006
       JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
       TRACING_ENABLED: "true"
       SERVICE_NAME: "api-gateway"
