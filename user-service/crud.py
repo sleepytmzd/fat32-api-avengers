@@ -103,7 +103,7 @@ async def delete_user(db: AsyncSession, user_id: str) -> bool:
     if not user:
         return False
     
-    # await db.delete(user)
+    await db.delete(user)
     await db.commit()
     
     logger.info(f"Deleted user: {user.email}")
