@@ -1,25 +1,22 @@
-from pydantic_settings import BaseSettings
+"""
+Configuration for Banking Service
+"""
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    """Application configuration settings"""
+    """Application settings"""
     
     # Service
-    SERVICE_NAME: str = os.getenv("SERVICE_NAME", "payment-service")
-    SERVICE_PORT: int = int(os.getenv("SERVICE_PORT", "8003"))
+    SERVICE_NAME: str = os.getenv("SERVICE_NAME", "banking-service")
+    SERVICE_PORT: int = int(os.getenv("SERVICE_PORT", "8004"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://payment_user:payment_pass@localhost:5436/payment_db"
+        "postgresql+asyncpg://banking_user:banking_pass@localhost:5437/banking_db"
     )
-    
-    # Kafka
-    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     
     # Tracing
     TRACING_ENABLED: bool = os.getenv("TRACING_ENABLED", "true").lower() == "true"
@@ -28,5 +25,5 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
-    
+
 settings = Settings()

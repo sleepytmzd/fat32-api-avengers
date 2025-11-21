@@ -168,6 +168,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL for Banking Service
+  postgres-banking:
+    image: postgres:15-alpine
+    container_name: postgres-banking-demo
+    environment:
+      POSTGRES_USER: banking_user
+      POSTGRES_PASSWORD: banking_pass
+      POSTGRES_DB: banking_db
+    ports:
+      - "5438:5432"
+    volumes:
+      - ./data/banking:/var/lib/postgresql/data
+    networks:
+      - cuet-api-avengers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U banking_user -d banking_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for Gateway
   redis:
     image: redis:7-alpine
@@ -271,6 +291,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://notification_user:notification_pass@postgres-notification:5432/notification_db
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
       SERVICE_NAME: "notification-service"
       SERVICE_PORT: 8005
     depends_on:
@@ -278,6 +300,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     networks:
       - cuet-api-avengers
     restart: unless-stopped
@@ -312,10 +336,13 @@ services:
       TRACING_ENABLED: "true"
       SERVICE_NAME: "payment-service"
       SERVICE_PORT: 8003
+      BANKING_SERVICE_URL: http://banking-service:8006
     depends_on:
       postgres-payment:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      banking-service:
         condition: service_healthy
     networks:
       - cuet-api-avengers
@@ -377,6 +404,43 @@ services:
         labels: "service,version"
     labels:
       - "service=donation-service"
+      - "version=v1"
+
+  # Banking Service
+  banking-service:
+    build:
+      context: ./banking-service
+      dockerfile: Dockerfile
+    container_name: banking-service-demo
+    ports:
+      - "8006:8006"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://banking_user:banking_pass@postgres-banking:5432/banking_db
+      JAEGER_ENDPOINT: http://jaeger-demo:14268/api/traces
+      TRACING_ENABLED: "true"
+      SERVICE_NAME: "banking-service"
+      SERVICE_PORT: 8006
+    depends_on:
+      postgres-banking:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - cuet-api-avengers
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version"
+    labels:
+      - "service=banking-service"
       - "version=v1"
 
   

@@ -8,6 +8,7 @@ from confluent_kafka import Consumer, Producer, KafkaError
 from decimal import Decimal
 import asyncio
 from functools import partial
+import httpx
 
 from database import AsyncSessionLocal
 from models import PaymentCreate, PaymentStatus, PaymentMethod
@@ -16,6 +17,7 @@ from crud import create_payment, update_payment_status, process_refund
 logger = logging.getLogger(__name__)
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+BANKING_SERVICE_URL = os.getenv("BANKING_SERVICE_URL", "http://banking-service:8004")
 ORDER_EVENTS_TOPIC = "order.events"
 PAYMENT_EVENTS_TOPIC = "payment.events"
 DONATION_EVENTS_TOPIC = "donation_created"
@@ -178,12 +180,36 @@ class KafkaHandler:
                 payment = await create_payment(db, payment_data)
                 payment_id = str(payment.id)
                 
-                # Simulate payment processing
-                await asyncio.sleep(2)
+                # Call banking service to debit account
+                success = False
+                failure_reason = None
                 
-                # For demo: 95% success rate
-                import random
-                success = random.random() < 0.95
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        response = await client.post(
+                            f"{BANKING_SERVICE_URL}/internal/debit",
+                            json={
+                                "user_id": user_id,
+                                "amount": float(amount)
+                            }
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            success = result.get("success", False)
+                            if not success:
+                                failure_reason = result.get("message", "Debit failed")
+                        else:
+                            failure_reason = f"Banking service error: {response.status_code}"
+                            logger.error(f"Banking service returned {response.status_code}: {response.text}")
+                
+                except httpx.RequestError as e:
+                    failure_reason = f"Banking service unavailable: {str(e)}"
+                    logger.error(f"Failed to reach banking service: {e}")
+                
+                except Exception as e:
+                    failure_reason = f"Banking service error: {str(e)}"
+                    logger.error(f"Error calling banking service: {e}", exc_info=True)
                 
                 if success:
                     # Payment successful
@@ -217,10 +243,10 @@ class KafkaHandler:
                         PaymentStatus.FAILED
                     )
                     
-                    payment.failure_reason = "Payment declined by processor"
+                    payment.failure_reason = failure_reason or "Payment declined"
                     await db.commit()
                     
-                    logger.warning(f"Payment {payment_id} failed")
+                    logger.warning(f"Payment {payment_id} failed: {payment.failure_reason}")
                     
                     # Publish payment.failed event
                     await self._publish_event({

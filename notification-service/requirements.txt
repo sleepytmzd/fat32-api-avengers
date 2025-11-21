@@ -17,6 +17,13 @@ confluent-kafka==2.3.0
 # Monitoring
 prometheus-fastapi-instrumentator
 
+# Distributed Tracing
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-sqlalchemy==0.42b0
+opentelemetry-exporter-jaeger-thrift==1.21.0
+
 # For production notification providers (optional)
 # sendgrid==6.10.0
 # twilio==8.10.0

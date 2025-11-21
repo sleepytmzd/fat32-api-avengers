@@ -2,7 +2,7 @@
 Notification Service - Email, SMS, and push notification delivery
 No database - stateless service ready for Kafka integration
 """
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request
 from typing import Optional, Dict, List
 import logging
 from datetime import datetime
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import init_db, get_db, close_db
 import crud
 from models import NotificationChannel, NotificationStatus
+from config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,10 +27,33 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Initialize tracing
+try:
+    from middleware.tracing import init_tracing
+    
+    if settings.TRACING_ENABLED:
+        init_tracing(app, service_name=settings.SERVICE_NAME, jaeger_endpoint=settings.JAEGER_ENDPOINT)
+        logger.info(f"Tracing initialized successfully - Service: {settings.SERVICE_NAME}")
+    else:
+        logger.info("Tracing disabled by configuration")
+except Exception as e:
+    logger.warning(f"Failed to initialize tracing: {e}")
+
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Kafka handler
 kafka_handler = KafkaHandler()
+
+# Add logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Logging middleware with trace correlation"""
+    try:
+        from middleware.logging import logging_middleware
+        return await logging_middleware(request, call_next)
+    except Exception as e:
+        logger.warning(f"Logging middleware error: {e}")
+        return await call_next(request)
 
 @app.on_event("startup")
 async def startup():
