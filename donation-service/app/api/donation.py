@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
+import sys
 from app.database.database import get_db
 from app.services.donation import DonationService
 from app.services.grpc_client import CampaignGRPCClient
@@ -26,6 +27,9 @@ async def create_donation(
     3. Return donation response (payment processing will be handled separately)
     """
     try:
+        print(f"\n[API] 📥 POST /donations - user: {donation_data.user_id}, campaign: {donation_data.campaign_id}, amount: {donation_data.amount}")
+        sys.stdout.flush()
+        
         logger.info(
             "Creating donation",
             user_id=donation_data.user_id,
@@ -34,6 +38,9 @@ async def create_donation(
         )
         
         # Step 1: Check campaign is active via gRPC
+        print(f"[API] 🔍 Validating campaign {donation_data.campaign_id} via gRPC...")
+        sys.stdout.flush()
+        
         async with CampaignGRPCClient() as grpc_client:
             campaign_status = await grpc_client.check_campaign_active(donation_data.campaign_id)
             
@@ -43,6 +50,8 @@ async def create_donation(
                     campaign_id=donation_data.campaign_id,
                     message=campaign_status["message"]
                 )
+                print(f"[API] ❌ Campaign {donation_data.campaign_id} validation failed: {campaign_status['message']}")
+                sys.stdout.flush()
                 raise HTTPException(
                     status_code=400,
                     detail={
@@ -57,14 +66,22 @@ async def create_donation(
                 campaign_id=donation_data.campaign_id,
                 message=campaign_status["message"]
             )
+            print(f"[API] ✅ Campaign {donation_data.campaign_id} is active")
+            sys.stdout.flush()
         
         # Step 2: Create donation in database with INITIATED status
+        print(f"[API] 💾 Creating donation in database...")
+        sys.stdout.flush()
+        
         donation, db_donation = DonationService.create_donation(
             db=db, 
             donation_data=donation_data
         )
         
         # Step 3: Publish donation_created event to Kafka
+        print(f"[API] 📤 Publishing donation_created event to Kafka...")
+        sys.stdout.flush()
+        
         await kafka_producer.publish_donation_created({
             "id": donation.id,
             "user_id": donation.user_id,
@@ -85,6 +102,8 @@ async def create_donation(
             amount=donation_data.amount,
             status=donation.status
         )
+        print(f"[API] ✅ Donation flow complete - ID: {donation.id}, Status: {donation.status}\n")
+        sys.stdout.flush()
         
         return donation
         

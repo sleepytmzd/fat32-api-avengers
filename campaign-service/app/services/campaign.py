@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import timedelta
+import sys
 from app.models.campaign import Campaign
 from app.schemas.campaign import CreateCampaignRequest, UpdateCampaignRequest, CampaignResponse
 from app.cache.redis import redis_cache
@@ -18,8 +19,14 @@ class CampaignService:
     async def create_campaign(db: Session, campaign_data: CreateCampaignRequest) -> CampaignResponse:
         """Create a new campaign with circuit breaker protection"""
         try:
+            print(f"[CAMPAIGN SERVICE] 🔄 Creating campaign: {campaign_data.title}")
+            sys.stdout.flush()
+            
             # Create with circuit breaker protection
             def db_create():
+                print(f"[CAMPAIGN SERVICE] 💾 Saving to database...")
+                sys.stdout.flush()
+                
                 db_campaign = Campaign(
                     title=campaign_data.title,
                     name=campaign_data.name,
@@ -38,9 +45,13 @@ class CampaignService:
                 db_campaign = await db_circuit_breaker.call(db_create)
             except CircuitBreakerError:
                 logger.warning("Circuit breaker open, service temporarily unavailable")
+                print(f"[CAMPAIGN SERVICE] ⚠️  Circuit breaker open")
+                sys.stdout.flush()
                 raise Exception("Service temporarily unavailable")
             
             logger.info("Campaign created successfully", campaign_id=db_campaign.id, title=db_campaign.title)
+            print(f"[CAMPAIGN SERVICE] ✅ Created campaign ID: {db_campaign.id}")
+            sys.stdout.flush()
             
             return CampaignResponse(
                 id=db_campaign.id,
@@ -63,6 +74,9 @@ class CampaignService:
     async def get_campaign(db: Session, campaign_id: int) -> Optional[CampaignResponse]:
         """Get a campaign by ID with circuit breaker"""
         try:
+            print(f"[CAMPAIGN SERVICE] 🔍 Fetching campaign ID: {campaign_id}")
+            sys.stdout.flush()
+            
             # Get from database with circuit breaker protection
             def db_query():
                 return db.query(Campaign).filter(Campaign.id == campaign_id).first()
@@ -71,10 +85,14 @@ class CampaignService:
                 db_campaign = await db_circuit_breaker.call(db_query)
             except CircuitBreakerError:
                 logger.warning("Circuit breaker open, service temporarily unavailable", campaign_id=campaign_id)
+                print(f"[CAMPAIGN SERVICE] ⚠️  Circuit breaker open for campaign {campaign_id}")
+                sys.stdout.flush()
                 raise Exception("Service temporarily unavailable")
             
             if not db_campaign:
                 logger.warning("Campaign not found", campaign_id=campaign_id)
+                print(f"[CAMPAIGN SERVICE] ⚠️  Campaign {campaign_id} not found")
+                sys.stdout.flush()
                 return None
             
             # Create response object
@@ -91,6 +109,8 @@ class CampaignService:
             )
             
             logger.info("Campaign retrieved successfully from database", campaign_id=campaign_id)
+            print(f"[CAMPAIGN SERVICE] ✅ Retrieved campaign {campaign_id}: {db_campaign.title} (active: {db_campaign.is_active})")
+            sys.stdout.flush()
             return campaign_response
             
         except Exception as e:

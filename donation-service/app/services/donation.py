@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import sys
 from app.models.donation import Donation, DonationStatus
 from app.schemas.donation import CreateDonationRequest, UpdateDonationRequest, DonationResponse
 import structlog
@@ -14,6 +15,9 @@ class DonationService:
     def create_donation(db: Session, donation_data: CreateDonationRequest) -> tuple[DonationResponse, Donation]:
         """Create a new donation with INITIATED status"""
         try:
+            print(f"[DONATION SERVICE] 🔄 Creating donation - user: {donation_data.user_id}, campaign: {donation_data.campaign_id}, amount: {donation_data.amount}")
+            sys.stdout.flush()
+            
             # Create new donation instance
             db_donation = Donation(
                 user_id=donation_data.user_id,
@@ -27,6 +31,9 @@ class DonationService:
                 status=DonationStatus.INITIATED
             )
             
+            print(f"[DONATION SERVICE] 💾 Saving to database...")
+            sys.stdout.flush()
+            
             # Add to database
             db.add(db_donation)
             db.commit()
@@ -37,6 +44,8 @@ class DonationService:
                        user_id=db_donation.user_id, 
                        campaign_id=db_donation.campaign_id,
                        amount=db_donation.amount)
+            print(f"[DONATION SERVICE] ✅ Created donation ID: {db_donation.id} with status: {db_donation.status.value}")
+            sys.stdout.flush()
             
             response = DonationResponse(
                 id=db_donation.id,
@@ -163,11 +172,19 @@ class DonationService:
     def update_donation_status(db: Session, donation_id: int, update_data: UpdateDonationRequest) -> Optional[DonationResponse]:
         """Update donation status and payment info"""
         try:
+            print(f"[DONATION SERVICE] 🔍 Looking up donation ID: {donation_id}")
+            sys.stdout.flush()
+            
             db_donation = db.query(Donation).filter(Donation.id == donation_id).first()
             
             if not db_donation:
                 logger.warning("Donation not found for status update", donation_id=donation_id)
+                print(f"[DONATION SERVICE] ⚠️  Donation {donation_id} not found")
+                sys.stdout.flush()
                 return None
+            
+            print(f"[DONATION SERVICE] 📝 Current status: {db_donation.status.value} → New status: {update_data.status}")
+            sys.stdout.flush()
             
             # Update fields if provided
             if update_data.status:
@@ -175,12 +192,17 @@ class DonationService:
             if update_data.payment_id:
                 db_donation.payment_id = update_data.payment_id
             
+            print(f"[DONATION SERVICE] 💾 Committing status update...")
+            sys.stdout.flush()
+            
             db.commit()
             db.refresh(db_donation)
             
             logger.info("Donation updated successfully", 
                        donation_id=donation_id, 
                        new_status=db_donation.status.value if update_data.status else None)
+            print(f"[DONATION SERVICE] ✅ Updated donation {donation_id} to {db_donation.status.value}")
+            sys.stdout.flush()
             
             return DonationResponse(
                 id=db_donation.id,
