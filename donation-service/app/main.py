@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.database.database import init_db, close_db
 from app.api.donation import router as orders_router
 from app.kafka.producer import kafka_producer
+from app.kafka.consumer import kafka_consumer
 from app.middleware.tracing import init_tracing
 from app.middleware.metrics import MetricsMiddleware, metrics_endpoint
 from app.middleware.logging import logging_middleware
@@ -93,6 +94,15 @@ async def startup_event():
         await kafka_producer.start()
         logger.info("Kafka producer initialized")
         
+        # Initialize Kafka consumer
+        await kafka_consumer.start()
+        logger.info("Kafka consumer initialized")
+        
+        # Start consuming payment events in background
+        import asyncio
+        asyncio.create_task(kafka_consumer.consume_events())
+        logger.info("Kafka consumer task started")
+        
         logger.info("Application startup completed successfully")
     except Exception as e:
         logger.error("Failed to initialize application", error=str(e))
@@ -105,6 +115,10 @@ async def shutdown_event():
     logger.info("Shutting down Order Service")
     
     try:
+        # Stop Kafka consumer
+        await kafka_consumer.stop()
+        logger.info("Kafka consumer stopped")
+        
         # Stop Kafka producer
         await kafka_producer.stop()
         logger.info("Kafka producer stopped")
