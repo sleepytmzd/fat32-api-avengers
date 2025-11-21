@@ -335,7 +335,7 @@ services:
       TRACING_ENABLED: "true"
       SERVICE_NAME: "payment-service"
       SERVICE_PORT: 8003
-      BANKING_SERVICE_URL: http://banking-service:8004
+      BANKING_SERVICE_URL: http://banking-service:8006
     depends_on:
       postgres-payment:
         condition: service_healthy

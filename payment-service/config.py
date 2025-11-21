@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Tracing
     TRACING_ENABLED: bool = os.getenv("TRACING_ENABLED", "true").lower() == "true"
     JAEGER_ENDPOINT: str = os.getenv("JAEGER_ENDPOINT", "http://jaeger:14268/api/traces")
+    BANKING_SERVICE_URL: str = os.getenv("BANKING_SERVICE_URL", "http://banking-service:8006")
     
     class Config:
         env_file = ".env"
