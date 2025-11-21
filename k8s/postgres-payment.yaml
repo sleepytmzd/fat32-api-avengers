@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-payment
+  labels:
+    app: pg-payment
+spec:
+  ports:
+    - port: 5432
+      name: pg-payment
+  clusterIP: None  # Headless service for stable DNS (needed by StatefulSet)
+  selector:
+    app: pg-payment
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-payment-access
+  labels:
+    app: pg-payment
+spec:
+  type: ClusterIP  # Use LoadBalancer only if you want external access (not recommended)
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: pg-payment
+  selector:
+    app: pg-payment
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pg-payment
+  labels:
+    app: pg-payment
+spec:
+  serviceName: pg-payment  # must match the headless service name
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg-payment
+  template:
+    metadata:
+      labels:
+        app: pg-payment
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: pg-payment
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: pg-payment
+          env:
+            - name: POSTGRES_DB
+              value: paymentdb
+            - name: POSTGRES_USER
+              value: user
+            - name: POSTGRES_PASSWORD
+              value: password
+          volumeMounts:
+            - name: pg-payment-data
+              mountPath: /var/lib/postgresql/data
+              subPath: data  # optional, ensures nested directory for data
+          resources:
+            requests:
+              cpu: 20m
+              memory: 200Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: pg-payment-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage  # DigitalOcean’s default storage class
+        resources:
+          requests:
+            storage: 512Mi
+

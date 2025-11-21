@@ -1,0 +1,378 @@
+---
+# Grafana ConfigMap - Datasource
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: default
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus:9090
+      isDefault: true
+      editable: true
+
+---
+# Grafana ConfigMap - Dashboard Provider
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: default
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+
+---
+# Grafana ConfigMap - Microservices Dashboard
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: default
+data:
+
+  microservices-dashboard.json: |
+    {
+      "id": 1,
+      "title": "Microservices Overview",
+      "timezone": "browser",
+      "schemaVersion": 36,
+      "version": 1,
+      "refresh": "5s",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Total HTTP Requests",
+          "id": 1,
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total[1m]))",
+              "legendFormat": "req/s"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Error Rate (%)",
+          "id": 2,
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m])) / sum(rate(http_requests_total[1m])) * 100",
+              "legendFormat": "error %"
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "title": "Request Rate Per Service",
+          "id": 3,
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "rate(http_requests_total[1m])",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "title": "Request Duration (p95)",
+          "id": 4,
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(request_duration_seconds_bucket[5m])) by (le, service))",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        }
+      ]
+    }
+
+  api-gateway-dashboard.json: |
+    {
+      "id": 2,
+      "title": "API Gateway Deep Metrics",
+      "timezone": "browser",
+      "schemaVersion": 36,
+      "version": 1,
+      "refresh": "5s",
+      "panels": [
+        {
+          "type": "bargauge",
+          "title": "Requests by Status Code",
+          "id": 1,
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 5 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{job=\"api-gateway\"}[1m])) by (status)",
+              "legendFormat": "{{status}}"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "title": "Top Endpoints by Request Rate",
+          "id": 2,
+          "gridPos": { "x": 0, "y": 5, "w": 12, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{job=\"api-gateway\"}[2m])) by (path)",
+              "legendFormat": "{{path}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Latency Histogram (p50,p95,p99)",
+          "id": 3,
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"api-gateway\"}[2m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"api-gateway\"}[2m])) by (le))",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"api-gateway\"}[2m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Request Rate by Method",
+          "id": 4,
+          "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{job=\"api-gateway\"}[1m])) by (method)",
+              "legendFormat": "{{method}}"
+            }
+          ]
+        }
+      ]
+    }
+  health-dashboard.json: |
+    {
+      "id": null,
+      "title": "Service Health Matrix",
+      "timezone": "browser",
+      "schemaVersion": 36,
+      "version": 1,
+      "refresh": "10s",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Service Status",
+          "id": 1,
+          "gridPos": { "x": 0, "y": 0, "w": 24, "h": 4 },
+          "targets": [
+            {
+              "expr": "up",
+              "legendFormat": "{{job}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Requests/sec (All Services)",
+          "id": 2,
+          "gridPos": { "x": 0, "y": 4, "w": 24, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total[1m])) by (job)",
+              "legendFormat": "{{job}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Error Rate (%) by Service",
+          "id": 3,
+          "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m])) by (job) / sum(rate(http_requests_total[1m])) by (job) * 100",
+              "legendFormat": "{{job}} error %"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Latency p95 by Service",
+          "id": 4,
+          "gridPos": { "x": 0, "y": 20, "w": 24, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job))",
+              "legendFormat": "{{job}} p95"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "CPU Usage",
+          "id": 5,
+          "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(process_cpu_seconds_total[2m])) by (job)",
+              "legendFormat": "{{job}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Memory Usage",
+          "id": 6,
+          "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(process_resident_memory_bytes) by (job)",
+              "legendFormat": "{{job}}"
+            }
+          ]
+        }
+      ]
+    }
+
+
+
+
+
+
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: default
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.2.0
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: "admin"
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: "admin"  # Change this in production!
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_SERVER_ROOT_URL
+          value: "http://localhost:3000"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "false"
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboard-provider
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboard-provider
+        configMap:
+          name: grafana-dashboard-provider
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+
+---
+# Grafana PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: default
+  labels:
+    app: grafana
+spec:
+  type: ClusterIP  # Change to NodePort or ClusterIP if needed
+  selector:
+    app: grafana
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: sleepytmzd/user-service:v11
+        ports:
+        - containerPort: 8001
+        command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://user:password@postgres-user-access:5432/userdb
+        - name: JAEGER_ENDPOINT
+          value: http://jaeger:14268/api/traces
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: SERVICE_NAME
+          value: "user-service"
+        - name: SERVICE_PORT
+          value: "8001"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-svc
+  labels:
+    app: user-service
+spec:
+  selector:
+    app: user-service
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+
+---
+
+# horizontal pod autoscaler for user-service
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50

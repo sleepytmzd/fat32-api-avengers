@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: sleepytmzd/notification-service:v11
+        ports:
+        - containerPort: 8005
+        command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://user:password@pg-notification-access:5432/notificationdb
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: JAEGER_ENDPOINT
+          value: http://jaeger:14268/api/traces
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: SERVICE_NAME
+          value: "notification-service"
+        - name: SERVICE_PORT
+          value: "8005"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service-svc
+  labels:
+    app: notification-service
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - protocol: TCP
+      port: 8005
+      targetPort: 8005
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: notification-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: notification-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50

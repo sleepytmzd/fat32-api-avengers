@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  labels:
+    app: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: sleepytmzd/api-gateway:v11
+        ports:
+        - containerPort: 8000
+          name: http
+        command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+        env:
+        - name: JWT_SECRET
+          value: "your_jwt_secret_key"
+        - name: RATE_LIMIT_ENABLED
+          value: "true"
+        - name: CACHE_ENABLED
+          value: "true"
+        - name: CIRCUIT_BREAKER_ENABLED
+          value: "true"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: USER_SERVICE_URL
+          value: "http://user-service-svc:8001"
+        
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-svc
+  labels:
+    app: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+
+# horizontal pod autoscaler for api-gateway
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70

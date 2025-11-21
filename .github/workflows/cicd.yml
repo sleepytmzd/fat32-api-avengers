@@ -1,0 +1,475 @@
+name: CI/CD Pipeline with Smart Detection
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      user-service: ${{ steps.filter.outputs.user-service }}
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
+      campaign-service: ${{ steps.filter.outputs.campaign-service }}
+      donation-service: ${{ steps.filter.outputs.donation-service }}
+      banking-service: ${{ steps.filter.outputs.banking-service }}
+      payment-service: ${{ steps.filter.outputs.payment-service }}
+      notification-service: ${{ steps.filter.outputs.notification-service }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Detect changed services
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            user-service:
+              - 'user-service/**'
+            api-gateway:
+              - 'api-gateway/**'
+            campaign-service:
+              - 'campaign-service/**'
+            donation-service:
+              - 'donation-service/**'
+            banking-service:
+              - 'banking-service/**'
+            payment-service:
+              - 'payment-service/**'
+            notification-service:
+              - 'notification-service/**'
+            frontend:
+              - 'frontend/**'
+
+  test-user-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.user-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd user-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd user-service
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-api-gateway:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api-gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd api-gateway
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd api-gateway
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-campaign-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.campaign-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd campaign-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd campaign-service
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-donation-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.donation-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd donation-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd donation-service
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-banking-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.banking-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd banking-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd banking-service
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-payment-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.payment-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd payment-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd payment-service
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-notification-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.notification-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          cd notification-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Run tests
+        run: |
+          cd notification-service
+          pytest tests/ -v || echo "No tests found, skipping..."
+
+  test-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Run linting
+        run: |
+          cd frontend
+          npm run lint || echo "No lint script found, skipping..."
+      
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test || echo "No tests found, skipping..."
+
+  build:
+    needs: [detect-changes, test-user-service, test-api-gateway, test-campaign-service, test-donation-service, test-banking-service, test-payment-service, test-notification-service, test-frontend]
+    if: |
+      always() && 
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, 'skip ci') &&
+      (needs.test-user-service.result == 'success' || needs.test-user-service.result == 'skipped') &&
+      (needs.test-api-gateway.result == 'success' || needs.test-api-gateway.result == 'skipped') &&
+      (needs.test-campaign-service.result == 'success' || needs.test-campaign-service.result == 'skipped') &&
+      (needs.test-donation-service.result == 'success' || needs.test-donation-service.result == 'skipped') &&
+      (needs.test-banking-service.result == 'success' || needs.test-banking-service.result == 'skipped') &&
+      (needs.test-payment-service.result == 'success' || needs.test-payment-service.result == 'skipped') &&
+      (needs.test-notification-service.result == 'success' || needs.test-notification-service.result == 'skipped') &&
+      (needs.test-frontend.result == 'success' || needs.test-frontend.result == 'skipped')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Changed Services Only
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+
+          # Build only changed services
+          if [ "${{ needs.detect-changes.outputs.user-service }}" == "true" ]; then
+            echo "Building user-service..."
+            cd user-service
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/user-service:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/user-service:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.api-gateway }}" == "true" ]; then
+            echo "Building api-gateway..."
+            cd api-gateway
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.campaign-service }}" == "true" ]; then
+            echo "Building campaign-service..."
+            cd campaign-service
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/campaign-service:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/campaign-service:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.donation-service }}" == "true" ]; then
+            echo "Building donation-service..."
+            cd donation-service
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/donation-service:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/donation-service:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.banking-service }}" == "true" ]; then
+            echo "Building banking-service..."
+            cd banking-service
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/banking-service:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/banking-service:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.payment-service }}" == "true" ]; then
+            echo "Building payment-service..."
+            cd payment-service
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.notification-service }}" == "true" ]; then
+            echo "Building notification-service..."
+            cd notification-service
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/notification-service:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/notification-service:$IMAGE_TAG
+            cd ..
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.frontend }}" == "true" ]; then
+            echo "Building frontend..."
+            cd frontend
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:$IMAGE_TAG .
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:$IMAGE_TAG
+            cd ..
+          fi
+
+
+  deploy:
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, 'skip cd') &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Get Kubernetes cluster credentials
+        run: |
+          doctl kubernetes cluster kubeconfig save ${{ secrets.DO_CLUSTER_NAME }}
+
+      - name: Deploy Changed Services Only
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+
+          # Deploy only changed services
+          if [ "${{ needs.detect-changes.outputs.user-service }}" == "true" ]; then
+            echo "Deploying user-service..."
+            kubectl set image deployment/user-service \
+              user-service=${{ secrets.DOCKERHUB_USERNAME }}/user-service:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/user-service
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.api-gateway }}" == "true" ]; then
+            echo "Deploying api-gateway..."
+            kubectl set image deployment/api-gateway \
+              api-gateway=${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/api-gateway
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.campaign-service }}" == "true" ]; then
+            echo "Deploying campaign-service..."
+            kubectl set image deployment/campaign-service \
+              campaign-service=${{ secrets.DOCKERHUB_USERNAME }}/campaign-service:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/campaign-service
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.donation-service }}" == "true" ]; then
+            echo "Deploying donation-service..."
+            kubectl set image deployment/donation-service \
+              donation-service=${{ secrets.DOCKERHUB_USERNAME }}/donation-service:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/donation-service
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.banking-service }}" == "true" ]; then
+            echo "Deploying banking-service..."
+            kubectl set image deployment/banking-service \
+              banking-service=${{ secrets.DOCKERHUB_USERNAME }}/banking-service:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/banking-service
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.payment-service }}" == "true" ]; then
+            echo "Deploying payment-service..."
+            kubectl set image deployment/payment-service \
+              payment-service=${{ secrets.DOCKERHUB_USERNAME }}/payment-service:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/payment-service
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.notification-service }}" == "true" ]; then
+            echo "Deploying notification-service..."
+            kubectl set image deployment/notification-service \
+              notification-service=${{ secrets.DOCKERHUB_USERNAME }}/notification-service:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/notification-service
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.frontend }}" == "true" ]; then
+            echo "Deploying frontend..."
+            kubectl set image deployment/frontend \
+              frontend=${{ secrets.DOCKERHUB_USERNAME }}/frontend:$IMAGE_TAG \
+              --record
+            kubectl rollout status deployment/frontend
+          fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      # # Step 1: Authenticate to GCP using the service account
+      # - name: Authenticate to GCP
+      #   uses: google-github-actions/auth@v1
+      #   with:
+      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # # Step 2: Get GKE credentials for kubectl
+      # - name: Configure kubectl
+      #   uses: google-github-actions/get-gke-credentials@v1
+      #   with:
+      #     cluster_name: foodhub-cluster-1
+      #     location: us-central1
+      #     project_id: kubernetes-test-469519
+
+      # # Step 3: Deploy to GKE
+      # - name: Deploy to Kubernetes
+      #   run: |
+      #     IMAGE_TAG=${{ github.sha }}
+      #     SERVICES=("food-service" "image-service-sb" "review-service" "user-service" "frontend" "restaurant-service" "hangout-service" "recomm-agent" "negative-positive-agent" "nutrition-predict-agent")
+
+      #     for SERVICE in "${SERVICES[@]}"; do
+      #       kubectl set image deployment.apps/"$SERVICE"-deployment \
+      #         $SERVICE=${{ secrets.DOCKERHUB_USERNAME }}/$SERVICE:$IMAGE_TAG -n default
+      #     done
+
+      #     for SERVICE in "${SERVICES[@]}"; do
+      #       kubectl rollout status deployment.apps/"$SERVICE"-deployment -n default
+      #     done

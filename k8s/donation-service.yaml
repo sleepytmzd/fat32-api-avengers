@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: donation-service
+  labels:
+    app: donation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: donation-service
+  template:
+    metadata:
+      labels:
+        app: donation-service
+    spec:
+      containers:
+      - name: donation-service
+        image: sleepytmzd/donation-service:v11
+        ports:
+        - containerPort: 8004
+        command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004"]
+        env:
+        - name: DATABASE_URL
+          value: postgresql://user:password@pg-donation-access:5432/donationdb
+        - name: CAMPAIGN_GRPC_URL
+          value: campaign-service-svc:50051
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: REDIS_URL
+          value: redis://redis-svc:6379
+        - name: JAEGER_ENDPOINT
+          value: http://jaeger:14268/api/traces
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: SERVICE_NAME
+          value: "donation-service"
+        - name: SERVICE_PORT
+          value: "8004"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: donation-service-svc
+  labels:
+    app: donation-service
+spec:
+  selector:
+    app: donation-service
+  ports:
+    - protocol: TCP
+      port: 8004
+      targetPort: 8004
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: donation-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: donation-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50
