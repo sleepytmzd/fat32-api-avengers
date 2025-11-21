@@ -17,6 +17,12 @@ confluent-kafka==2.3.0
 # Monitoring
 prometheus-fastapi-instrumentator
 
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-mock==3.12.0
+httpx==0.26.0
+
 # For production notification providers (optional)
 # sendgrid==6.10.0
 # twilio==8.10.0
