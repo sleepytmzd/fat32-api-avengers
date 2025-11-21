@@ -129,15 +129,13 @@ class KafkaHandler:
         from models import NotificationChannel, NotificationStatus
         
         donation_id = event.get("donation_id")
-        order_id = event.get("order_id")
         user_id = event.get("user_id")
         campaign_id = event.get("campaign_id")
         amount = event.get("amount")
         reason = event.get("reason", "Unknown error")
         
-        # Support both order and donation context
-        reference_id = donation_id or order_id
-        reference_type = "donation" if donation_id else "order"
+        reference_id = donation_id
+        reference_type = "donation"
         
         logger.warning(f"Payment failed for {reference_type} {reference_id}: {reason}")
         
@@ -154,8 +152,7 @@ class KafkaHandler:
         body += f"Reason: {reason}\n\n"
         if campaign_id:
             body += f"Campaign ID: {campaign_id}\n"
-        if donation_id:
-            body += f"Donation ID: {donation_id}\n"
+        body += f"Donation ID: {donation_id}\n"
         body += f"\nPlease check your account balance and try again."
         
         # Insert notification into database
@@ -171,7 +168,6 @@ class KafkaHandler:
                     status=NotificationStatus.PENDING,
                     data={
                         "donation_id": donation_id,
-                        "order_id": order_id,
                         "campaign_id": campaign_id,
                         "amount": amount,
                         "reason": reason

@@ -36,8 +36,10 @@ class KafkaHandler:
             consumer_config = {
                 'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
                 'group.id': 'payment-service',
-                'auto.offset.reset': 'latest',
-                'enable.auto.commit': True
+                'auto.offset.reset': 'earliest',
+                'enable.auto.commit': True,
+                'session.timeout.ms': 10000,
+                'max.poll.interval.ms': 300000
             }
             
             # Producer configuration
@@ -48,9 +50,15 @@ class KafkaHandler:
             }
             
             self.consumer = Consumer(consumer_config)
+            # Subscribe to topics - they will be auto-created on first message
             self.consumer.subscribe([DONATION_EVENTS_TOPIC])
             
             self.producer = Producer(producer_config)
+            
+            self._connected = True
+            self._running = True
+            logger.info(f"Kafka handler started, connected to {KAFKA_BOOTSTRAP_SERVERS}")
+            logger.info(f"Subscribed to topics: {DONATION_EVENTS_TOPIC}")
             
             self._connected = True
             self._running = True
@@ -122,6 +130,11 @@ class KafkaHandler:
                 
                 if msg.error():
                     if msg.error().code() == KafkaError._PARTITION_EOF:
+                        continue
+                    elif msg.error().code() == KafkaError.UNKNOWN_TOPIC_OR_PART:
+                        # Topic doesn't exist yet, wait for it to be created
+                        logger.warning(f"Topic not available yet: {msg.error()}")
+                        await asyncio.sleep(5)
                         continue
                     else:
                         logger.error(f"Consumer error: {msg.error()}")
@@ -208,7 +221,8 @@ class KafkaHandler:
                 logger.info(f"Step 3: Creating payment record...")
                 payment_data = PaymentCreate(
                     user_id=user_id,
-                    order_id=str(donation_id),
+                    donation_id=str(donation_id),
+                    campaign_id=str(campaign_id),
                     amount=amount,
                     currency="USD",
                     payment_method=PaymentMethod(payment_method),
@@ -329,7 +343,9 @@ class KafkaHandler:
         """Publish event to payment events topic"""
         try:
             value = json.dumps(event).encode('utf-8')
-            key = event.get("payment_id", event.get("donation_id", "")).encode('utf-8')
+            # Convert key to string first, then encode
+            key_value = event.get("payment_id") or event.get("donation_id") or ""
+            key = str(key_value).encode('utf-8')
             
             # Produce message asynchronously
             await asyncio.get_event_loop().run_in_executor(
